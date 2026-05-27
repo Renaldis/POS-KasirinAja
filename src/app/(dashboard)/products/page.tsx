@@ -8,9 +8,13 @@ import {
   toProductListItem,
 } from "@/app/(dashboard)/products/_services/product-mappers";
 import { Button } from "@/components/ui/button";
+import {
+  ListPagination,
+} from "@/components/shared/list-pagination";
 import { PageShell } from "@/components/shared/page-shell";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentUserWithAccess } from "@/lib/auth/server";
+import { normalizePage, normalizePageSize } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 
 type ProductsPageProps = {
@@ -19,6 +23,8 @@ type ProductsPageProps = {
     categoryId?: string;
     status?: string;
     stock?: string;
+    page?: string;
+    pageSize?: string;
   }>;
 };
 
@@ -38,8 +44,28 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const categoryId = filters.categoryId?.trim() || undefined;
   const status = filters.status?.trim() || undefined;
   const stock = filters.stock?.trim() || undefined;
+  const page = normalizePage(filters.page);
+  const pageSize = normalizePageSize(filters.pageSize);
+  const skip = (page - 1) * pageSize;
 
-  const [categories, products, canCreateProducts, canUpdateProducts, canDeleteProducts] =
+  const productWhere = {
+    storeId: user.storeId,
+    ...(categoryId ? { categoryId } : {}),
+    ...(status === "active" ? { isActive: true } : {}),
+    ...(status === "inactive" ? { isActive: false } : {}),
+    ...(stock === "low" ? { stock: { lte: prisma.product.fields.minimumStock } } : {}),
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" as const } },
+            { sku: { contains: search, mode: "insensitive" as const } },
+            { barcode: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  const [categories, products, totalProducts, canCreateProducts, canUpdateProducts, canDeleteProducts] =
     await Promise.all([
       prisma.category.findMany({
         where: {
@@ -50,22 +76,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         },
       }),
       prisma.product.findMany({
-        where: {
-          storeId: user.storeId,
-          ...(categoryId ? { categoryId } : {}),
-          ...(status === "active" ? { isActive: true } : {}),
-          ...(status === "inactive" ? { isActive: false } : {}),
-          ...(stock === "low" ? { stock: { lte: prisma.product.fields.minimumStock } } : {}),
-          ...(search
-            ? {
-                OR: [
-                  { name: { contains: search, mode: "insensitive" } },
-                  { sku: { contains: search, mode: "insensitive" } },
-                  { barcode: { contains: search, mode: "insensitive" } },
-                ],
-              }
-            : {}),
-        },
+        where: productWhere,
         orderBy: {
           createdAt: "desc",
         },
@@ -76,7 +87,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             },
           },
         },
-        take: 50,
+        skip,
+        take: pageSize,
+      }),
+      prisma.product.count({
+        where: productWhere,
       }),
       hasPermission(user.id, "product.create"),
       hasPermission(user.id, "product.update"),
@@ -125,6 +140,13 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           canDelete={canDeleteProducts}
           canUpdate={canUpdateProducts}
           products={productItems}
+        />
+        <ListPagination
+          basePath="/products"
+          page={page}
+          pageSize={pageSize}
+          totalItems={totalProducts}
+          searchParams={{ q: search, categoryId, status, stock }}
         />
       </div>
     </PageShell>
