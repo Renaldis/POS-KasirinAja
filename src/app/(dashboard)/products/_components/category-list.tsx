@@ -1,16 +1,13 @@
 "use client";
 
-import { Check, Pencil, Trash2, X } from "lucide-react";
-import { useState, useTransition } from "react";
+import Link from "next/link";
+import { Pencil, Trash2 } from "lucide-react";
+import { useTransition } from "react";
 import { toast } from "sonner";
-import {
-  deleteCategoryAction,
-  updateCategoryAction,
-} from "@/app/(dashboard)/products/_actions/category-actions";
+import { deleteCategoryAction } from "@/app/(dashboard)/products/_actions/category-actions";
 import type { CategoryListItem } from "@/app/(dashboard)/products/_types/category";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 type CategoryListProps = {
   categories: CategoryListItem[];
@@ -54,27 +51,7 @@ function CategoryRow({
   category: CategoryListItem;
   canManage: boolean;
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(category.name);
   const [isPending, startTransition] = useTransition();
-
-  function handleUpdate() {
-    const formData = new FormData();
-    formData.set("id", category.id);
-    formData.set("name", name);
-
-    startTransition(async () => {
-      const result = await updateCategoryAction(formData);
-
-      if (!result.success) {
-        toast.error(result.message ?? "Kategori gagal diperbarui");
-        return;
-      }
-
-      setIsEditing(false);
-      toast.success(result.message ?? "Kategori berhasil diperbarui");
-    });
-  }
 
   function handleDelete() {
     if (!window.confirm(`Hapus kategori "${category.name}"? Produk terkait akan menjadi tanpa kategori.`)) {
@@ -99,21 +76,8 @@ function CategoryRow({
   return (
     <div className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 sm:grid-cols-[1fr_140px_160px]">
       <div className="min-w-0">
-        {isEditing ? (
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            disabled={isPending}
-            aria-label="Nama kategori"
-          />
-        ) : (
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{category.name}</p>
-            <p className="mt-0.5 truncate text-xs text-[var(--muted-foreground)]">
-              {category.slug}
-            </p>
-          </div>
-        )}
+        <p className="truncate text-sm font-medium">{category.name}</p>
+        <p className="mt-0.5 truncate text-xs text-[var(--muted-foreground)]">{category.slug}</p>
       </div>
 
       <div className="hidden sm:block">
@@ -121,45 +85,12 @@ function CategoryRow({
       </div>
 
       <div className="flex justify-end gap-1">
-        {canManage && isEditing ? (
+        {canManage ? (
           <>
-            <Button
-              size="icon"
-              type="button"
-              variant="ghost"
-              aria-label="Simpan kategori"
-              disabled={isPending}
-              onClick={handleUpdate}
-            >
-              <Check className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button
-              size="icon"
-              type="button"
-              variant="ghost"
-              aria-label="Batal edit"
-              disabled={isPending}
-              onClick={() => {
-                setName(category.name);
-                setIsEditing(false);
-              }}
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </>
-        ) : null}
-
-        {canManage && !isEditing ? (
-          <>
-            <Button
-              size="icon"
-              type="button"
-              variant="ghost"
-              aria-label="Edit kategori"
-              disabled={isPending}
-              onClick={() => setIsEditing(true)}
-            >
-              <Pencil className="h-4 w-4" aria-hidden="true" />
+            <Button asChild size="icon" type="button" variant="ghost" aria-label="Edit kategori">
+              <Link href={`/products/categories/${category.id}/edit`}>
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+              </Link>
             </Button>
             <Button
               size="icon"

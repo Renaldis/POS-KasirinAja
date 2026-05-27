@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/shared/page-shell";
 
 const metrics = [
   { label: "Penjualan Hari Ini", value: "Rp0", helper: "Belum ada transaksi" },
@@ -10,17 +11,14 @@ const metrics = [
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-normal">Dashboard</h1>
-          <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-            Ringkasan operasional toko hari ini.
-          </p>
-        </div>
+    <PageShell
+      title="Dashboard"
+      description="Ringkasan operasional toko hari ini."
+      breadcrumbs={[{ label: "Dashboard" }]}
+      actions={
         <Button>Mulai POS</Button>
-      </div>
-
+      }
+    >
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
           <div
@@ -57,6 +55,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
-    </div>
+    </PageShell>
   );
 }
