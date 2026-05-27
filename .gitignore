@@ -1,0 +1,17 @@
+.next
+node_modules
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+dist
+coverage
+prisma/dev.db
+
+/src/generated/prisma
+
+akun.md
+TASKS.md
+TECHSTACK.md
+PLAN.md
+PRD.md

@@ -1,0 +1,411 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoleSlug {
+  super_admin
+  admin
+  cashier
+  custom
+}
+
+enum PermissionOverrideEffect {
+  allow
+  deny
+}
+
+enum UserStatus {
+  active
+  inactive
+}
+
+enum PaymentMethod {
+  cash
+  manual_transfer
+  qris
+  e_wallet
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  rejected
+  expired
+  refunded
+}
+
+enum TransactionStatus {
+  draft
+  pending
+  completed
+  cancelled
+  voided
+}
+
+enum StockMovementType {
+  stock_in
+  stock_out
+  adjustment
+  sale
+  return
+}
+
+enum ShiftStatus {
+  open
+  closed
+}
+
+model Store {
+  id            String          @id @default(cuid())
+  name          String
+  address       String?
+  phone         String?
+  logoUrl       String?         @map("logo_url")
+  users         User[]
+  roles         Role[]
+  categories    Category[]
+  products      Product[]
+  stockMoves    StockMovement[]
+  shifts        Shift[]
+  transactions  Transaction[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  @@map("stores")
+}
+
+model User {
+  id                  String                   @id @default(cuid())
+  storeId             String?                  @map("store_id")
+  roleId              String?                  @map("role_id")
+  name                String
+  email               String                   @unique
+  emailVerified       Boolean                  @default(false) @map("email_verified")
+  image               String?
+  passwordHash        String?                  @map("password_hash")
+  status              UserStatus               @default(active)
+  store               Store?                   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  role                Role?                    @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  sessions            Session[]
+  accounts            Account[]
+  stockMoves          StockMovement[]
+  shifts              Shift[]
+  transactions        Transaction[]            @relation("CashierTransactions")
+  approvedPayments    Payment[]                @relation("PaymentApprover")
+  voidedTransactions  Transaction[]            @relation("TransactionVoidBy")
+  permissionOverrides UserPermissionOverride[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+
+  @@index([storeId])
+  @@index([roleId])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  providerId            String    @map("provider_id")
+  accountId             String    @map("account_id")
+  userId                String    @map("user_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([providerId, accountId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+model Role {
+  id              String           @id @default(cuid())
+  storeId         String?          @map("store_id")
+  name            String
+  slug            RoleSlug         @default(custom)
+  description     String?
+  isSystem        Boolean          @default(false) @map("is_system")
+  store           Store?           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  users           User[]
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@unique([storeId, name])
+  @@index([storeId])
+  @@map("roles")
+}
+
+model Permission {
+  id              String                   @id @default(cuid())
+  key             String                   @unique
+  name            String
+  description     String?
+  module          String
+  rolePermissions RolePermission[]
+  userOverrides   UserPermissionOverride[]
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserPermissionOverride {
+  id           String                   @id @default(cuid())
+  userId       String                   @map("user_id")
+  permissionId String                   @map("permission_id")
+  effect       PermissionOverrideEffect
+  user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission               @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+
+  @@unique([userId, permissionId])
+  @@index([permissionId])
+  @@map("user_permission_overrides")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  storeId   String    @map("store_id")
+  name      String
+  slug      String
+  store     Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products  Product[]
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([storeId, slug])
+  @@index([storeId])
+  @@map("categories")
+}
+
+model Product {
+  id               String            @id @default(cuid())
+  storeId          String            @map("store_id")
+  categoryId       String?           @map("category_id")
+  name             String
+  sku              String
+  barcode          String?
+  unit             String            @default("pcs")
+  costPrice        Decimal           @default(0) @map("cost_price") @db.Decimal(14, 2)
+  sellingPrice     Decimal           @map("selling_price") @db.Decimal(14, 2)
+  stock            Int               @default(0)
+  minimumStock     Int               @default(0) @map("minimum_stock")
+  imageUrl         String?           @map("image_url")
+  isActive         Boolean           @default(true) @map("is_active")
+  store            Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category         Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  stockMoves       StockMovement[]
+  transactionItems TransactionItem[]
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  @@unique([storeId, sku])
+  @@index([storeId, name])
+  @@index([storeId, barcode])
+  @@index([categoryId])
+  @@map("products")
+}
+
+model StockMovement {
+  id          String            @id @default(cuid())
+  storeId     String            @map("store_id")
+  productId   String            @map("product_id")
+  userId      String            @map("user_id")
+  type        StockMovementType
+  qty         Int
+  stockBefore Int               @map("stock_before")
+  stockAfter  Int               @map("stock_after")
+  note        String?
+  store       Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product     Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  @@index([storeId, productId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("stock_movements")
+}
+
+model Shift {
+  id             String        @id @default(cuid())
+  storeId        String        @map("store_id")
+  cashierId      String        @map("cashier_id")
+  openingCash    Decimal       @default(0) @map("opening_cash") @db.Decimal(14, 2)
+  closingCash    Decimal?      @map("closing_cash") @db.Decimal(14, 2)
+  expectedCash   Decimal?      @map("expected_cash") @db.Decimal(14, 2)
+  cashDifference Decimal?      @map("cash_difference") @db.Decimal(14, 2)
+  status         ShiftStatus   @default(open)
+  store          Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  cashier        User          @relation(fields: [cashierId], references: [id], onDelete: Restrict)
+  transactions   Transaction[]
+  openedAt       DateTime      @default(now()) @map("opened_at")
+  closedAt       DateTime?     @map("closed_at")
+
+  @@index([storeId, cashierId, status])
+  @@index([openedAt])
+  @@map("shifts")
+}
+
+model Transaction {
+  id                String            @id @default(cuid())
+  storeId           String            @map("store_id")
+  shiftId           String?           @map("shift_id")
+  cashierId         String            @map("cashier_id")
+  invoiceNumber     String            @unique @map("invoice_number")
+  subtotal          Decimal           @db.Decimal(14, 2)
+  discountTotal     Decimal           @default(0) @map("discount_total") @db.Decimal(14, 2)
+  taxTotal          Decimal           @default(0) @map("tax_total") @db.Decimal(14, 2)
+  total             Decimal           @db.Decimal(14, 2)
+  paymentMethod     PaymentMethod     @map("payment_method")
+  paymentStatus     PaymentStatus     @default(pending) @map("payment_status")
+  transactionStatus TransactionStatus @default(pending) @map("transaction_status")
+  voidedBy          String?           @map("voided_by")
+  voidedAt          DateTime?         @map("voided_at")
+  voidReason        String?           @map("void_reason")
+  paidAt            DateTime?         @map("paid_at")
+  store             Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  shift             Shift?            @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  cashier           User              @relation("CashierTransactions", fields: [cashierId], references: [id], onDelete: Restrict)
+  voidedByUser      User?             @relation("TransactionVoidBy", fields: [voidedBy], references: [id], onDelete: SetNull)
+  items             TransactionItem[]
+  payments          Payment[]
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  @@index([storeId, createdAt])
+  @@index([cashierId])
+  @@index([shiftId])
+  @@index([paymentStatus])
+  @@map("transactions")
+}
+
+model TransactionItem {
+  id            String      @id @default(cuid())
+  transactionId String      @map("transaction_id")
+  productId     String?     @map("product_id")
+  productName   String      @map("product_name")
+  qty           Int
+  unitPrice     Decimal     @map("unit_price") @db.Decimal(14, 2)
+  subtotal      Decimal     @db.Decimal(14, 2)
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  product       Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([transactionId])
+  @@index([productId])
+  @@map("transaction_items")
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  transactionId  String        @map("transaction_id")
+  method         PaymentMethod
+  status         PaymentStatus @default(pending)
+  amount         Decimal       @db.Decimal(14, 2)
+  reference      String?
+  proofUrl       String?       @map("proof_url")
+  approvedBy     String?       @map("approved_by")
+  approvedAt     DateTime?     @map("approved_at")
+  rejectedReason String?       @map("rejected_reason")
+  transaction    Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  approver       User?         @relation("PaymentApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([transactionId])
+  @@index([status])
+  @@index([reference])
+  @@map("payments")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  storeId   String   @map("store_id")
+  userId    String?  @map("user_id")
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([storeId, isRead])
+  @@index([userId])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  storeId   String?  @map("store_id")
+  userId    String?  @map("user_id")
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  metadata  Json?
+  store     Store?   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([storeId, createdAt])
+  @@index([userId])
+  @@map("audit_logs")
+}
