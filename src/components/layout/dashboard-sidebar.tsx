@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   BarChart3,
   Boxes,
+  Clock3,
   CreditCard,
   LayoutDashboard,
   Package,
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "POS Kasir", href: "/pos", icon: ShoppingCart },
+  { label: "Shift Kasir", href: "/shifts", icon: Clock3 },
   { label: "Produk", href: "/products", icon: Package },
   { label: "Stok", href: "/stocks", icon: Boxes },
   { label: "Transaksi", href: "/transactions", icon: ReceiptText },
