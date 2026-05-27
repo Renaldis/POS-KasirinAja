@@ -31,3 +31,26 @@ select,
 textarea {
   font: inherit;
 }
+
+.print-receipt {
+  display: none;
+}
+
+@media print {
+  body > * {
+    visibility: hidden;
+  }
+
+  .print-receipt,
+  .print-receipt * {
+    visibility: visible;
+  }
+
+  .print-receipt {
+    display: block;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 100%;
+  }
+}
