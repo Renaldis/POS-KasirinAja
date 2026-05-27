@@ -3,6 +3,7 @@
 import { useRef, useTransition } from "react";
 import { toast } from "sonner";
 import { createProductAction } from "@/app/(dashboard)/products/_actions/product-actions";
+import { ProductImageInputPreview } from "@/app/(dashboard)/products/_components/product-image-input-preview";
 import type { ProductCategoryOption } from "@/app/(dashboard)/products/_types/product";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,9 @@ export function ProductForm({ categories, canCreate }: ProductFormProps) {
         </Field>
         <Field label="Barcode" htmlFor="product-barcode">
           <Input id="product-barcode" name="barcode" placeholder="899..." disabled={isPending} />
+        </Field>
+        <Field label="Foto Produk" htmlFor="product-image">
+          <ProductImageInputPreview id="product-image" disabled={isPending} />
         </Field>
         <Field label="Kategori" htmlFor="product-category">
           <select

@@ -10,6 +10,7 @@ type ProductRecord = {
   sellingPrice: { toString(): string };
   stock: number;
   minimumStock: number;
+  imageUrl: string | null;
   isActive: boolean;
   categoryId: string | null;
   category?: {
@@ -33,6 +34,7 @@ export function toProductListItem(product: ProductRecord): ProductListItem {
     sellingPrice: product.sellingPrice.toString(),
     stock: product.stock,
     minimumStock: product.minimumStock,
+    imageUrl: product.imageUrl,
     isActive: product.isActive,
     categoryId: product.categoryId,
     categoryName: product.category?.name ?? null,

@@ -5,6 +5,7 @@ import { Pencil, Power } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { deactivateProductAction } from "@/app/(dashboard)/products/_actions/product-actions";
+import { ProductImagePreview } from "@/app/(dashboard)/products/_components/product-image-preview";
 import type { ProductListItem } from "@/app/(dashboard)/products/_types/product";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,7 @@ export function ProductList({ products, canUpdate, canDelete }: ProductListProps
 
   return (
     <div className="overflow-hidden rounded-lg border bg-white">
-      <div className="hidden grid-cols-[1.3fr_0.8fr_0.8fr_0.7fr_0.7fr_130px] gap-3 border-b bg-[var(--muted)] px-4 py-3 text-sm font-medium text-[var(--muted-foreground)] xl:grid">
+      <div className="hidden grid-cols-[1.5fr_0.8fr_0.8fr_0.7fr_0.7fr_130px] gap-3 border-b bg-[var(--muted)] px-4 py-3 text-sm font-medium text-[var(--muted-foreground)] xl:grid">
         <span>Produk</span>
         <span>Kategori</span>
         <span>Harga</span>
@@ -92,13 +93,34 @@ function ProductRow({
   }
 
   return (
-    <div className="grid gap-3 px-4 py-4 xl:grid-cols-[1.3fr_0.8fr_0.8fr_0.7fr_0.7fr_130px] xl:items-center">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium">{product.name}</p>
-        <p className="mt-0.5 truncate text-xs text-[var(--muted-foreground)]">
-          SKU {product.sku}
-          {product.barcode ? ` - ${product.barcode}` : ""}
-        </p>
+    <div className="grid gap-3 px-4 py-4 xl:grid-cols-[1.5fr_0.8fr_0.8fr_0.7fr_0.7fr_130px] xl:items-center">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="group relative flex h-12 w-12 shrink-0 items-center justify-center rounded-md border bg-[var(--muted)] text-xs font-medium text-[var(--muted-foreground)]">
+          {product.imageUrl ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={product.imageUrl}
+                alt={product.name}
+                className="h-full w-full rounded-md object-cover"
+              />
+              <ProductImagePreview
+                src={product.imageUrl}
+                alt={product.name}
+                triggerClassName="absolute inset-0 h-full w-full rounded-md bg-black/45 text-white opacity-0 transition-opacity hover:bg-black/55 group-hover:opacity-100 focus-visible:opacity-100"
+              />
+            </>
+          ) : (
+            "IMG"
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{product.name}</p>
+          <p className="mt-0.5 truncate text-xs text-[var(--muted-foreground)]">
+            SKU {product.sku}
+            {product.barcode ? ` - ${product.barcode}` : ""}
+          </p>
+        </div>
       </div>
       <p className="text-sm text-[var(--muted-foreground)]">
         {product.categoryName ?? "Tanpa kategori"}

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { updateProductAction } from "@/app/(dashboard)/products/_actions/product-actions";
+import { ProductImageInputPreview } from "@/app/(dashboard)/products/_components/product-image-input-preview";
 import type {
   ProductCategoryOption,
   ProductListItem,
@@ -52,6 +53,14 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
             id="product-barcode"
             name="barcode"
             defaultValue={product.barcode ?? ""}
+            disabled={isPending}
+          />
+        </Field>
+        <Field label="Foto Produk" htmlFor="product-image">
+          <ProductImageInputPreview
+            id="product-image"
+            currentImageUrl={product.imageUrl}
+            productName={product.name}
             disabled={isPending}
           />
         </Field>

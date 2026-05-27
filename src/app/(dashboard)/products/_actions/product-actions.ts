@@ -10,6 +10,7 @@ import {
 import type { ProductActionState } from "@/app/(dashboard)/products/_types/product";
 import { getCurrentUser } from "@/lib/auth/server";
 import { requirePermission } from "@/lib/auth/permissions";
+import { getOptionalImageFile, uploadImage } from "@/lib/cloudinary";
 import { prisma } from "@/lib/prisma";
 import type { PermissionKey } from "@/constants/permissions";
 
@@ -131,6 +132,11 @@ export async function createProductAction(formData: FormData): Promise<ProductAc
       };
     }
 
+    const imageFile = getOptionalImageFile(formData, "image");
+    const imageUrl = imageFile
+      ? await uploadImage(imageFile, `kasirinaja/${context.storeId}/products`)
+      : undefined;
+
     await prisma.$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
@@ -144,6 +150,7 @@ export async function createProductAction(formData: FormData): Promise<ProductAc
           sellingPrice: input.sellingPrice.toFixed(2),
           stock: input.stock,
           minimumStock: input.minimumStock,
+          imageUrl,
           isActive: input.isActive,
         },
         select: {
@@ -177,6 +184,7 @@ export async function createProductAction(formData: FormData): Promise<ProductAc
           metadata: {
             name: product.name,
             sku: input.sku,
+            imageUrl,
           },
         },
       });
@@ -266,6 +274,11 @@ export async function updateProductAction(formData: FormData): Promise<ProductAc
       };
     }
 
+    const imageFile = getOptionalImageFile(formData, "image");
+    const imageUrl = imageFile
+      ? await uploadImage(imageFile, `kasirinaja/${context.storeId}/products`)
+      : undefined;
+
     await prisma.$transaction(async (tx) => {
       await tx.product.update({
         where: {
@@ -281,6 +294,7 @@ export async function updateProductAction(formData: FormData): Promise<ProductAc
           sellingPrice: input.sellingPrice.toFixed(2),
           stock: input.stock,
           minimumStock: input.minimumStock,
+          ...(imageUrl ? { imageUrl } : {}),
           isActive: input.isActive,
         },
       });
@@ -312,6 +326,7 @@ export async function updateProductAction(formData: FormData): Promise<ProductAc
             previousSku: product.sku,
             name: input.name,
             sku: input.sku,
+            imageUrl,
           },
         },
       });

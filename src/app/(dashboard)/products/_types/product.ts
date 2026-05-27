@@ -13,6 +13,7 @@ export type ProductListItem = {
   sellingPrice: string;
   stock: number;
   minimumStock: number;
+  imageUrl: string | null;
   isActive: boolean;
   categoryId: string | null;
   categoryName: string | null;
