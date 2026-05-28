@@ -10,6 +10,7 @@ import { voidTransactionSchema } from "@/app/(dashboard)/transactions/_schemas/t
 import type { TransactionActionState } from "@/app/(dashboard)/transactions/_types/transaction";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
+import { createNotificationWithClient } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 async function getActionContext() {
@@ -163,12 +164,23 @@ export async function voidTransactionAction(formData: FormData): Promise<Transac
           },
         },
       });
+
+      if (transaction.cashierId !== context.userId) {
+        await createNotificationWithClient(tx, {
+          storeId: context.storeId,
+          userId: transaction.cashierId,
+          type: "transaction.voided",
+          title: "Transaksi di-void",
+          message: `Invoice ${transaction.invoiceNumber} di-void: ${parsedInput.data.reason}`,
+        });
+      }
     });
 
     revalidatePath("/transactions");
     revalidatePath(`/transactions/${transaction.id}`);
     revalidatePath("/products");
     revalidatePath("/pos");
+    revalidatePath("/", "layout");
 
     return {
       success: true,

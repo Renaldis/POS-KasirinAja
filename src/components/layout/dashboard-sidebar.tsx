@@ -6,6 +6,7 @@ import { useState } from 'react';
 import {
   BarChart3,
   Boxes,
+  Bell,
   ChevronDown,
   Clock3,
   ClipboardList,
@@ -71,6 +72,19 @@ const navigationSections = [
     items: [
       { label: 'Produk', href: '/products', icon: Package, permissions: ['product.read'] },
       { label: 'Stok', href: '/stocks', icon: Boxes, permissions: ['stock.read'] },
+    ],
+  },
+  {
+    id: 'inbox',
+    label: 'Inbox',
+    defaultOpen: true,
+    items: [
+      {
+        label: 'Notifikasi',
+        href: '/notifications',
+        icon: Bell,
+        permissions: ['dashboard.store.read', 'dashboard.global.read', 'pos.access'],
+      },
     ],
   },
   {

@@ -15,6 +15,7 @@ import type { PaymentActionState } from "@/app/(dashboard)/payments/_types/payme
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
 import { getOptionalImageFile, uploadImage } from "@/lib/cloudinary";
+import { createNotificationWithClient } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 async function getUserContext(permission?: "payment.manual.approve" | "payment.manual.reject") {
@@ -279,6 +280,14 @@ export async function approveManualPaymentAction(formData: FormData): Promise<Pa
           },
         },
       });
+
+      await createNotificationWithClient(tx, {
+        storeId: context.storeId,
+        userId: payment.transaction.cashierId,
+        type: "payment.manual.approved",
+        title: "Transfer manual disetujui",
+        message: `Invoice ${payment.transaction.invoiceNumber} sudah di-approve.`,
+      });
     });
 
     revalidatePath("/payments");
@@ -288,6 +297,7 @@ export async function approveManualPaymentAction(formData: FormData): Promise<Pa
     revalidatePath("/stocks");
     revalidatePath("/products");
     revalidatePath("/dashboard");
+    revalidatePath("/", "layout");
 
     return {
       success: true,
@@ -371,6 +381,14 @@ export async function rejectManualPaymentAction(formData: FormData): Promise<Pay
           },
         },
       });
+
+      await createNotificationWithClient(tx, {
+        storeId: context.storeId,
+        userId: payment.transaction.cashierId,
+        type: "payment.manual.rejected",
+        title: "Transfer manual ditolak",
+        message: `Invoice ${payment.transaction.invoiceNumber} ditolak: ${parsedInput.data.reason}`,
+      });
     });
 
     revalidatePath("/payments");
@@ -378,6 +396,7 @@ export async function rejectManualPaymentAction(formData: FormData): Promise<Pay
     revalidatePath("/transactions");
     revalidatePath(`/transactions/${payment.transactionId}`);
     revalidatePath("/dashboard");
+    revalidatePath("/", "layout");
 
     return {
       success: true,

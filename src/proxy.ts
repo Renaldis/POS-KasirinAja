@@ -41,6 +41,7 @@ export const config = {
     "/users/:path*",
     "/roles/:path*",
     "/audit-logs/:path*",
+    "/notifications/:path*",
     "/settings/:path*",
     "/auth/login",
     "/auth/register",

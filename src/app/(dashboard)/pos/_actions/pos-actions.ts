@@ -21,6 +21,7 @@ import type {
 } from "@/app/(dashboard)/pos/_types/pos";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
+import { notifyUsersWithPermission } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 async function getActionContext() {
@@ -413,6 +414,16 @@ export async function checkoutManualTransferAction(
     revalidatePath("/payments");
     revalidatePath("/transactions");
     revalidatePath("/dashboard");
+    revalidatePath("/", "layout");
+
+    await notifyUsersWithPermission({
+      storeId: context.storeId,
+      permission: "payment.manual.approve",
+      type: "payment.manual.pending",
+      title: "Transfer manual menunggu approval",
+      message: `Invoice ${invoiceNumber} menunggu verifikasi pembayaran.`,
+      excludeUserId: context.userId,
+    });
 
     return {
       success: true,
