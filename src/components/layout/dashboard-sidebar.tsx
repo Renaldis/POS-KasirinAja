@@ -11,6 +11,7 @@ import {
   Package,
   ReceiptText,
   Settings,
+  ShieldCheck,
   ShoppingCart,
   Users,
   WalletCards,
@@ -20,28 +21,60 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 const navigation = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'POS Kasir', href: '/pos', icon: ShoppingCart },
-  { label: 'Shift Kasir', href: '/shifts', icon: Clock3 },
-  { label: 'Produk', href: '/products', icon: Package },
-  { label: 'Stok', href: '/stocks', icon: Boxes },
-  { label: 'Transaksi', href: '/transactions', icon: ReceiptText },
-  { label: 'Pembayaran', href: '/payments', icon: CreditCard },
-  { label: 'Laporan', href: '/reports', icon: BarChart3 },
-  { label: 'User & Role', href: '/users', icon: Users },
-  { label: 'Setting', href: '/settings', icon: Settings },
+  {
+    label: 'Dashboard',
+    href: '/dashboard',
+    icon: LayoutDashboard,
+    permissions: ['dashboard.store.read', 'dashboard.global.read'],
+  },
+  { label: 'POS Kasir', href: '/pos', icon: ShoppingCart, permissions: ['pos.access'] },
+  {
+    label: 'Shift Kasir',
+    href: '/shifts',
+    icon: Clock3,
+    permissions: ['shift.read.own', 'shift.read.all', 'shift.open', 'shift.close'],
+  },
+  { label: 'Produk', href: '/products', icon: Package, permissions: ['product.read'] },
+  { label: 'Stok', href: '/stocks', icon: Boxes, permissions: ['stock.read'] },
+  {
+    label: 'Transaksi',
+    href: '/transactions',
+    icon: ReceiptText,
+    permissions: ['transaction.read.own', 'transaction.read.all'],
+  },
+  {
+    label: 'Pembayaran',
+    href: '/payments',
+    icon: CreditCard,
+    permissions: ['payment.manual.approve', 'payment.manual.reject'],
+  },
+  { label: 'Laporan', href: '/reports', icon: BarChart3, permissions: ['report.read'] },
+  { label: 'User', href: '/users', icon: Users, permissions: ['user.manage'] },
+  { label: 'Role', href: '/roles', icon: ShieldCheck, permissions: ['role.manage'] },
+  {
+    label: 'Setting',
+    href: '/settings',
+    icon: Settings,
+    permissions: ['setting.store.update', 'setting.global.update'],
+  },
 ];
 
 type DashboardSidebarProps = {
   open: boolean;
+  permissionKeys: string[];
   onOpenChange: (open: boolean) => void;
 };
 
 export function DashboardSidebar({
   open,
+  permissionKeys,
   onOpenChange,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const permissionSet = new Set(permissionKeys);
+  const visibleNavigation = navigation.filter((item) =>
+    item.permissions.some((permission) => permissionSet.has(permission)),
+  );
 
   function isActive(href: string) {
     return pathname === href || pathname.startsWith(`${href}/`);
@@ -69,7 +102,7 @@ export function DashboardSidebar({
         </Button>
       </div>
       <nav className="space-y-1 px-3 py-4">
-        {navigation.map((item) => (
+        {visibleNavigation.map((item) => (
           <Link
             key={item.href}
             href={item.href}

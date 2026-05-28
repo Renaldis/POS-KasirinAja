@@ -3,6 +3,7 @@ import { UserForm } from '@/app/(dashboard)/users/_components/user-form';
 import { dedupeRoleOptions } from '@/app/(dashboard)/users/_services/role-options';
 import type { UserFormValue } from '@/app/(dashboard)/users/_types/user';
 import { PageShell } from '@/components/shared/page-shell';
+import { RoleSlug } from '@/generated/prisma/client';
 import { hasPermission } from '@/lib/auth/permissions';
 import { getCurrentUserWithAccess } from '@/lib/auth/server';
 import { prisma } from '@/lib/prisma';
@@ -31,10 +32,13 @@ export default async function EditUserPage({ params }: EditUserPageProps) {
     redirect('/users');
   }
 
+  const isSuperAdmin = currentUser.role?.slug === RoleSlug.super_admin;
   const [roles, user] = await Promise.all([
     prisma.role.findMany({
       where: {
-        OR: [{ storeId: null }, { storeId: currentUser.storeId }],
+        OR: isSuperAdmin
+          ? [{ storeId: currentUser.storeId }, { storeId: null, slug: RoleSlug.super_admin }]
+          : [{ storeId: currentUser.storeId }],
       },
       orderBy: [{ isSystem: 'desc' }, { name: 'asc' }],
       select: {
@@ -73,7 +77,7 @@ export default async function EditUserPage({ params }: EditUserPageProps) {
       description="Ubah profil, role, status, atau reset password user."
       breadcrumbs={[
         { label: 'Dashboard', href: '/dashboard' },
-        { label: 'User & Role', href: '/users' },
+        { label: 'User', href: '/users' },
         { label: user.name },
       ]}
     >

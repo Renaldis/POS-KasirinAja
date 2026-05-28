@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { getUserPermissionKeys } from "@/lib/auth/permissions";
 import { getCurrentUserWithAccess } from "@/lib/auth/server";
 
 export default async function DashboardLayout({
@@ -17,7 +18,9 @@ export default async function DashboardLayout({
     redirect("/auth/register");
   }
 
+  const permissionKeys = await getUserPermissionKeys(user.id);
+
   return (
-    <DashboardShell>{children}</DashboardShell>
+    <DashboardShell permissionKeys={[...permissionKeys]}>{children}</DashboardShell>
   );
 }

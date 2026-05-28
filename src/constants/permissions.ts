@@ -30,11 +30,16 @@ export const permissions = [
 
 export type PermissionKey = (typeof permissions)[number]["key"];
 
+export const globalPermissionKeys = [
+  "dashboard.global.read",
+  "setting.global.update",
+] as const satisfies readonly PermissionKey[];
+
 export const defaultRolePermissions = {
   super_admin: permissions.map((permission) => permission.key),
   admin: permissions
     .map((permission) => permission.key)
-    .filter((key) => !["dashboard.global.read", "setting.global.update"].includes(key)),
+    .filter((key) => !(globalPermissionKeys as readonly string[]).includes(key)),
   cashier: [
     "pos.access",
     "pos.transaction.create",

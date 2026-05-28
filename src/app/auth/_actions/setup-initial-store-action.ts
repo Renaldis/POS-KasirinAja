@@ -58,44 +58,67 @@ export async function setupInitialStoreAction(
       },
     });
 
-    const adminRole = await tx.role.create({
-      data: {
-        storeId: store.id,
+    const defaultStoreRoles = [
+      {
         name: "Admin Warung",
         slug: RoleSlug.admin,
         description: "Role admin default untuk pengelola toko.",
-        isSystem: true,
+        permissionKeys: defaultRolePermissions.admin,
       },
-    });
+      {
+        name: "Kasir",
+        slug: RoleSlug.cashier,
+        description: "Role kasir default untuk operasional POS.",
+        permissionKeys: defaultRolePermissions.cashier,
+      },
+    ];
 
-    const adminPermissions = await tx.permission.findMany({
-      where: {
-        key: {
-          in: [...defaultRolePermissions.admin],
+    let adminRoleId = "";
+
+    for (const role of defaultStoreRoles) {
+      const savedRole = await tx.role.create({
+        data: {
+          storeId: store.id,
+          name: role.name,
+          slug: role.slug,
+          description: role.description,
+          isSystem: true,
         },
-      },
-      select: {
-        id: true,
-      },
-    });
+      });
 
-    if (adminPermissions.length === 0) {
-      throw new Error("Permission default belum tersedia. Jalankan seed database.");
+      if (role.slug === RoleSlug.admin) {
+        adminRoleId = savedRole.id;
+      }
+
+      const rolePermissions = await tx.permission.findMany({
+        where: {
+          key: {
+            in: [...role.permissionKeys],
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (rolePermissions.length === 0) {
+        throw new Error("Permission default belum tersedia. Jalankan seed database.");
+      }
+
+      await tx.rolePermission.createMany({
+        data: rolePermissions.map((permission) => ({
+          roleId: savedRole.id,
+          permissionId: permission.id,
+        })),
+        skipDuplicates: true,
+      });
     }
-
-    await tx.rolePermission.createMany({
-      data: adminPermissions.map((permission) => ({
-        roleId: adminRole.id,
-        permissionId: permission.id,
-      })),
-      skipDuplicates: true,
-    });
 
     await tx.user.update({
       where: { id: existingUser.id },
       data: {
         storeId: store.id,
-        roleId: adminRole.id,
+        roleId: adminRoleId,
       },
     });
 

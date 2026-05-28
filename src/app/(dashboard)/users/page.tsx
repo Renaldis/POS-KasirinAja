@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { UserFilters } from "@/app/(dashboard)/users/_components/user-filters";
 import { UserList } from "@/app/(dashboard)/users/_components/user-list";
@@ -8,7 +8,7 @@ import type { UserListItem } from "@/app/(dashboard)/users/_types/user";
 import { ListPagination } from "@/components/shared/list-pagination";
 import { PageShell } from "@/components/shared/page-shell";
 import { Button } from "@/components/ui/button";
-import { UserStatus } from "@/generated/prisma/client";
+import { RoleSlug, UserStatus } from "@/generated/prisma/client";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentUserWithAccess } from "@/lib/auth/server";
 import { normalizePage, normalizePageSize } from "@/lib/pagination";
@@ -36,7 +36,10 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
     redirect("/auth/register");
   }
 
-  const canManageUsers = await hasPermission(user.id, "user.manage");
+  const [canManageUsers, canManageRoles] = await Promise.all([
+    hasPermission(user.id, "user.manage"),
+    hasPermission(user.id, "role.manage"),
+  ]);
 
   if (!canManageUsers) {
     redirect("/dashboard");
@@ -48,6 +51,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
   const page = normalizePage(filters.page);
   const pageSize = normalizePageSize(filters.pageSize);
   const skip = (page - 1) * pageSize;
+  const isSuperAdmin = user.role?.slug === RoleSlug.super_admin;
 
   const userWhere = {
     storeId: user.storeId,
@@ -67,7 +71,9 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
   const [roles, users, totalUsers] = await Promise.all([
     prisma.role.findMany({
       where: {
-        OR: [{ storeId: null }, { storeId: user.storeId }],
+        OR: isSuperAdmin
+          ? [{ storeId: user.storeId }, { storeId: null, slug: RoleSlug.super_admin }]
+          : [{ storeId: user.storeId }],
       },
       orderBy: [{ isSystem: "desc" }, { name: "asc" }],
       select: {
@@ -113,19 +119,29 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
 
   return (
     <PageShell
-      title="User & Role"
+      title="User"
       description="Kelola user toko, status akun, dan role akses."
       breadcrumbs={[
         { label: "Dashboard", href: "/dashboard" },
-        { label: "User & Role" },
+        { label: "User" },
       ]}
       actions={
-        <Button asChild>
-          <Link href="/users/create">
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Tambah User
-          </Link>
-        </Button>
+        <>
+          {canManageRoles ? (
+            <Button asChild variant="outline">
+              <Link href="/roles">
+                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                Role
+              </Link>
+            </Button>
+          ) : null}
+          <Button asChild>
+            <Link href="/users/create">
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Tambah User
+            </Link>
+          </Button>
+        </>
       }
     >
       <div className="space-y-4">

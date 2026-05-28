@@ -1,7 +1,7 @@
 "use server";
 
 import { hashPassword } from "@better-auth/utils/password";
-import { Prisma, UserStatus } from "@/generated/prisma/client";
+import { Prisma, RoleSlug, UserStatus } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import {
   createUserSchema,
@@ -27,6 +27,11 @@ async function getActionContext() {
     select: {
       id: true,
       storeId: true,
+      role: {
+        select: {
+          slug: true,
+        },
+      },
     },
   });
 
@@ -41,6 +46,7 @@ async function getActionContext() {
   return {
     userId: user.id,
     storeId: user.storeId,
+    isSuperAdmin: user.role?.slug === RoleSlug.super_admin,
   };
 }
 
@@ -58,11 +64,13 @@ function getUserFormValues(formData: FormData) {
   };
 }
 
-async function validateRole(storeId: string, roleId: string) {
+async function validateRole(storeId: string, roleId: string, isSuperAdmin: boolean) {
   const role = await prisma.role.findFirst({
     where: {
       id: roleId,
-      OR: [{ storeId: null }, { storeId }],
+      OR: isSuperAdmin
+        ? [{ storeId }, { storeId: null, slug: RoleSlug.super_admin }]
+        : [{ storeId }],
     },
     select: {
       id: true,
@@ -99,7 +107,7 @@ export async function createUserAction(formData: FormData): Promise<UserActionSt
     }
 
     const input = parsedInput.data;
-    const role = await validateRole(context.storeId, input.roleId);
+    const role = await validateRole(context.storeId, input.roleId, context.isSuperAdmin);
 
     if (!role) {
       return {
@@ -208,7 +216,7 @@ export async function updateUserAction(formData: FormData): Promise<UserActionSt
           email: true,
         },
       }),
-      validateRole(context.storeId, input.roleId),
+      validateRole(context.storeId, input.roleId, context.isSuperAdmin),
     ]);
 
     if (!existingUser) {
