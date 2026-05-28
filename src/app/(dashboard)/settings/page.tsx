@@ -1,9 +1,22 @@
 import { redirect } from 'next/navigation';
+import { permissions } from '@/constants/permissions';
+import { NotificationPreferencesForm } from '@/app/(dashboard)/settings/_components/notification-preferences-form';
 import { StoreSettingsForm } from '@/app/(dashboard)/settings/_components/store-settings-form';
-import type { StoreSettings } from '@/app/(dashboard)/settings/_types/setting';
+import type {
+  NotificationPreferenceFormItem,
+  StoreSettings,
+} from '@/app/(dashboard)/settings/_types/setting';
 import { PageShell } from '@/components/shared/page-shell';
 import { hasPermission } from '@/lib/auth/permissions';
 import { getCurrentUserWithAccess } from '@/lib/auth/server';
+import {
+  getStoreNotificationPreferences,
+  notificationPreferenceDefinitions,
+} from '@/lib/notifications/preferences';
+
+const permissionLabelByKey = new Map(
+  permissions.map((permission) => [permission.key, permission.name]),
+);
 
 export default async function SettingsPage() {
   const user = await getCurrentUserWithAccess();
@@ -16,7 +29,10 @@ export default async function SettingsPage() {
     redirect('/auth/register');
   }
 
-  const canUpdateStore = await hasPermission(user.id, 'setting.store.update');
+  const [canUpdateStore, notificationPreferences] = await Promise.all([
+    hasPermission(user.id, 'setting.store.update'),
+    getStoreNotificationPreferences(user.store.id),
+  ]);
   const store: StoreSettings = {
     id: user.store.id,
     name: user.store.name,
@@ -24,6 +40,18 @@ export default async function SettingsPage() {
     phone: user.store.phone,
     logoUrl: user.store.logoUrl,
   };
+  const preferenceItems: NotificationPreferenceFormItem[] =
+    notificationPreferenceDefinitions.map((definition) => ({
+      key: definition.key,
+      label: definition.label,
+      description: definition.description,
+      enabled: notificationPreferences[definition.key].enabled,
+      permissionOptions: definition.allowedPermissionKeys.map((permissionKey) => ({
+        key: permissionKey,
+        label: permissionLabelByKey.get(permissionKey) ?? permissionKey,
+        checked: notificationPreferences[definition.key].permissionKeys.includes(permissionKey),
+      })),
+    }));
 
   return (
     <PageShell
@@ -43,6 +71,10 @@ export default async function SettingsPage() {
           </p>
         </section>
         <StoreSettingsForm canUpdate={canUpdateStore} store={store} />
+        <NotificationPreferencesForm
+          canUpdate={canUpdateStore}
+          preferences={preferenceItems}
+        />
       </div>
     </PageShell>
   );

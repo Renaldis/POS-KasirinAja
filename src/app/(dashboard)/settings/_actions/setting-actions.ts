@@ -6,6 +6,10 @@ import type { SettingActionState } from "@/app/(dashboard)/settings/_types/setti
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
 import { getOptionalImageFile, uploadImage } from "@/lib/cloudinary";
+import {
+  normalizeNotificationPreferences,
+  notificationPreferenceDefinitions,
+} from "@/lib/notifications/preferences";
 import { prisma } from "@/lib/prisma";
 
 async function getActionContext() {
@@ -115,6 +119,69 @@ export async function updateStoreSettingsAction(
     return {
       success: false,
       message: error instanceof Error ? error.message : "Setting toko gagal diperbarui.",
+    };
+  }
+}
+
+export async function updateNotificationPreferencesAction(
+  formData: FormData,
+): Promise<SettingActionState> {
+  try {
+    const context = await getActionContext();
+
+    if ("error" in context) {
+      return { success: false, message: context.error };
+    }
+
+    const preferences = normalizeNotificationPreferences(
+      Object.fromEntries(
+        notificationPreferenceDefinitions.map((definition) => [
+          definition.key,
+          {
+            enabled: formData.get(`${definition.key}.enabled`) === "on",
+            permissionKeys: formData.getAll(`${definition.key}.permissionKeys`),
+          },
+        ]),
+      ),
+    );
+
+    await prisma.$transaction(async (tx) => {
+      await tx.store.update({
+        where: {
+          id: context.storeId,
+        },
+        data: {
+          notificationPreferences: preferences,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          storeId: context.storeId,
+          userId: context.userId,
+          action: "setting.notification_preferences.updated",
+          entity: "store",
+          entityId: context.storeId,
+          metadata: {
+            preferences,
+          },
+        },
+      });
+    });
+
+    revalidatePath("/settings");
+
+    return {
+      success: true,
+      message: "Preferensi notifikasi berhasil diperbarui.",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Preferensi notifikasi gagal diperbarui.",
     };
   }
 }

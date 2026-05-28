@@ -21,7 +21,7 @@ import type {
 } from "@/app/(dashboard)/pos/_types/pos";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
-import { notifyLowStockOnce, notifyUsersWithPermission } from "@/lib/notifications";
+import { notifyLowStockOnce, notifyUsersForPreference } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { bumpStoreRealtimeVersion } from "@/lib/realtime/store-events";
 
@@ -438,9 +438,9 @@ export async function checkoutManualTransferAction(
       "dashboard",
     ]);
 
-    await notifyUsersWithPermission({
+    await notifyUsersForPreference({
       storeId: context.storeId,
-      permission: "payment.manual.approve",
+      preferenceKey: "payment.manual.pending",
       type: "payment.manual.pending",
       title: "Transfer manual menunggu approval",
       message: `Invoice ${invoiceNumber} menunggu verifikasi pembayaran.`,

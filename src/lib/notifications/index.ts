@@ -4,6 +4,10 @@ import {
   bumpStoreNotificationVersion,
   bumpUserNotificationVersion,
 } from "@/lib/notifications/realtime";
+import {
+  getStoreNotificationPreferences,
+  type NotificationPreferenceKey,
+} from "@/lib/notifications/preferences";
 import { prisma } from "@/lib/prisma";
 
 type NotificationInput = {
@@ -205,6 +209,36 @@ export async function notifyUsersWithAnyPermission({
   );
 }
 
+export async function notifyUsersForPreference({
+  storeId,
+  preferenceKey,
+  type,
+  title,
+  message,
+  actionUrl,
+  excludeUserId,
+}: NotificationInput & {
+  preferenceKey: NotificationPreferenceKey;
+  excludeUserId?: string;
+}) {
+  const preferences = await getStoreNotificationPreferences(storeId);
+  const preference = preferences[preferenceKey];
+
+  if (!preference.enabled || preference.permissionKeys.length === 0) {
+    return;
+  }
+
+  await notifyUsersWithAnyPermission({
+    storeId,
+    permissions: preference.permissionKeys,
+    type,
+    title,
+    message,
+    actionUrl,
+    excludeUserId,
+  });
+}
+
 export async function notifyLowStockOnce({
   storeId,
   productId,
@@ -247,9 +281,9 @@ export async function notifyLowStockOnce({
     return;
   }
 
-  await notifyUsersWithAnyPermission({
+  await notifyUsersForPreference({
     storeId,
-    permissions: ["stock.read", "stock.adjustment.create"],
+    preferenceKey: "stock.low",
     type,
     title: "Stok produk menipis",
     message: `${product.name} tersisa ${product.stock} ${product.unit}. Minimum stok ${product.minimumStock} ${product.unit}.`,
