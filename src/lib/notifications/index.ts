@@ -257,6 +257,55 @@ export async function notifyLowStockOnce({
   });
 }
 
+export async function resolveLowStockNotification({
+  storeId,
+  productId,
+}: {
+  storeId: string;
+  productId: string;
+}) {
+  const type = `stock.low.${productId}`;
+  const unreadNotifications = await prisma.notification.findMany({
+    where: {
+      storeId,
+      type,
+      isRead: false,
+    },
+    select: {
+      userId: true,
+    },
+  });
+
+  if (unreadNotifications.length === 0) {
+    return;
+  }
+
+  await prisma.notification.updateMany({
+    where: {
+      storeId,
+      type,
+      isRead: false,
+    },
+    data: {
+      isRead: true,
+    },
+  });
+
+  const userIds = new Set(
+    unreadNotifications
+      .map((notification) => notification.userId)
+      .filter((userId): userId is string => Boolean(userId)),
+  );
+  const hasStoreNotification = unreadNotifications.some(
+    (notification) => notification.userId === null,
+  );
+
+  await Promise.all([
+    ...Array.from(userIds).map((userId) => bumpUserNotificationVersion(storeId, userId)),
+    hasStoreNotification ? bumpStoreNotificationVersion(storeId) : Promise.resolve(),
+  ]);
+}
+
 export async function createNotificationWithClient(
   tx: Pick<PrismaClient, "notification">,
   input: NotificationInput,

@@ -6,7 +6,7 @@ import { stockMovementSchema } from "@/app/(dashboard)/stocks/_schemas/stock-sch
 import type { StockActionState } from "@/app/(dashboard)/stocks/_types/stock";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
-import { notifyLowStockOnce } from "@/lib/notifications";
+import { notifyLowStockOnce, resolveLowStockNotification } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { bumpStoreRealtimeVersion } from "@/lib/realtime/store-events";
 
@@ -168,6 +168,11 @@ export async function createStockMovementAction(formData: FormData): Promise<Sto
 
     if (stockAfter <= product.minimumStock) {
       await notifyLowStockOnce({
+        storeId: context.storeId,
+        productId: product.id,
+      });
+    } else {
+      await resolveLowStockNotification({
         storeId: context.storeId,
         productId: product.id,
       });

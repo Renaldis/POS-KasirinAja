@@ -10,7 +10,7 @@ import { voidTransactionSchema } from "@/app/(dashboard)/transactions/_schemas/t
 import type { TransactionActionState } from "@/app/(dashboard)/transactions/_types/transaction";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
-import { createNotificationWithClient } from "@/lib/notifications";
+import { createNotificationWithClient, resolveLowStockNotification } from "@/lib/notifications";
 import { bumpUserNotificationVersion } from "@/lib/notifications/realtime";
 import { prisma } from "@/lib/prisma";
 import { bumpStoreRealtimeVersion } from "@/lib/realtime/store-events";
@@ -100,7 +100,9 @@ export async function voidTransactionAction(formData: FormData): Promise<Transac
       };
     }
 
-    await prisma.$transaction(async (tx) => {
+    const restoredProducts = await prisma.$transaction(async (tx) => {
+      const productsRestoredAboveMinimum: string[] = [];
+
       await tx.transaction.update({
         where: {
           id: transaction.id,
@@ -135,8 +137,13 @@ export async function voidTransactionAction(formData: FormData): Promise<Transac
             select: {
               id: true,
               stock: true,
+              minimumStock: true,
             },
           });
+
+          if (product.stock > product.minimumStock) {
+            productsRestoredAboveMinimum.push(product.id);
+          }
 
           await tx.stockMovement.create({
             data: {
@@ -177,6 +184,8 @@ export async function voidTransactionAction(formData: FormData): Promise<Transac
           actionUrl: `/transactions/${transaction.id}`,
         });
       }
+
+      return productsRestoredAboveMinimum;
     });
 
     revalidatePath("/transactions");
@@ -194,6 +203,15 @@ export async function voidTransactionAction(formData: FormData): Promise<Transac
     if (transaction.cashierId !== context.userId) {
       await bumpUserNotificationVersion(context.storeId, transaction.cashierId);
     }
+
+    await Promise.all(
+      restoredProducts.map((productId) =>
+        resolveLowStockNotification({
+          storeId: context.storeId,
+          productId,
+        }),
+      ),
+    );
 
     return {
       success: true,
