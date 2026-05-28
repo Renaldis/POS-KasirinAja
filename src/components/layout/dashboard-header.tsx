@@ -1,12 +1,24 @@
+"use client";
+
 import { Bell, Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function DashboardHeader() {
+type DashboardHeaderProps = {
+  onMenuClick: () => void;
+};
+
+export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   return (
     <header className="sticky top-0 z-20 border-b bg-white/95 backdrop-blur">
       <div className="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
-        <Button className="lg:hidden" size="icon" variant="ghost" aria-label="Buka menu">
+        <Button
+          className="lg:hidden"
+          size="icon"
+          variant="ghost"
+          aria-label="Buka menu"
+          onClick={onMenuClick}
+        >
           <Menu className="h-5 w-5" aria-hidden="true" />
         </Button>
         <div className="relative hidden w-full max-w-md sm:block">

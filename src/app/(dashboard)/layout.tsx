@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { DashboardHeader } from "@/components/layout/dashboard-header";
-import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { getCurrentUserWithAccess } from "@/lib/auth/server";
 
 export default async function DashboardLayout({
@@ -19,12 +18,6 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-dvh bg-[var(--background)] text-[var(--foreground)]">
-      <DashboardSidebar />
-      <div className="min-h-dvh lg:pl-64">
-        <DashboardHeader />
-        <main className="px-4 py-4 sm:px-6 lg:px-8">{children}</main>
-      </div>
-    </div>
+    <DashboardShell>{children}</DashboardShell>
   );
 }
