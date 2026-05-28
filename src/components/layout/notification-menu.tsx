@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Bell } from 'lucide-react';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
@@ -30,14 +31,19 @@ export function NotificationMenu({
   notificationVersion,
   unreadCount,
 }: NotificationMenuProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState(notifications);
   const [currentUnreadCount, setCurrentUnreadCount] = useState(unreadCount);
   const versionRef = useRef(notificationVersion);
+  const knownNotificationIdsRef = useRef(new Set(notifications.map((notification) => notification.id)));
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     versionRef.current = notificationVersion;
+    knownNotificationIdsRef.current = new Set(
+      notifications.map((notification) => notification.id),
+    );
 
     const timeoutId = window.setTimeout(() => {
       setItems(notifications);
@@ -71,16 +77,29 @@ export function NotificationMenu({
           return;
         }
 
+        const nextItems = result.notifications.map(
+          (notification: NotificationListItem & { createdAt: string }) => ({
+            ...notification,
+            createdAt: new Date(notification.createdAt),
+          }),
+        );
+        const newUnreadNotification = nextItems.find(
+          (notification: NotificationListItem) =>
+            !notification.isRead && !knownNotificationIdsRef.current.has(notification.id),
+        );
+
         versionRef.current = result.version;
         setCurrentUnreadCount(result.unreadCount);
-        setItems(
-          result.notifications.map(
-            (notification: NotificationListItem & { createdAt: string }) => ({
-              ...notification,
-              createdAt: new Date(notification.createdAt),
-            }),
-          ),
+        setItems(nextItems);
+        knownNotificationIdsRef.current = new Set(
+          nextItems.map((notification: NotificationListItem) => notification.id),
         );
+
+        if (newUnreadNotification) {
+          toast(newUnreadNotification.title, {
+            description: newUnreadNotification.message,
+          });
+        }
       } catch {
         // Keep the current UI; Redis/API polling is a realtime enhancement.
       }
@@ -122,9 +141,20 @@ export function NotificationMenu({
     };
   }, []);
 
-  function handleMarkRead(id: string) {
+  function handleNotificationClick(notification: NotificationListItem) {
+    const actionUrl = notification.actionUrl;
+
+    if (notification.isRead) {
+      if (actionUrl) {
+        setOpen(false);
+        router.push(actionUrl);
+      }
+
+      return;
+    }
+
     const formData = new FormData();
-    formData.set('id', id);
+    formData.set('id', notification.id);
 
     startTransition(async () => {
       const result = await markNotificationReadAction(formData);
@@ -135,11 +165,18 @@ export function NotificationMenu({
       }
 
       setItems((currentItems) =>
-        currentItems.map((notification) =>
-          notification.id === id ? { ...notification, isRead: true } : notification,
+        currentItems.map((currentNotification) =>
+          currentNotification.id === notification.id
+            ? { ...currentNotification, isRead: true }
+            : currentNotification,
         ),
       );
       setCurrentUnreadCount((currentCount) => Math.max(0, currentCount - 1));
+
+      if (actionUrl) {
+        setOpen(false);
+        router.push(actionUrl);
+      }
     });
   }
 
@@ -204,9 +241,9 @@ export function NotificationMenu({
                 <button
                   key={notification.id}
                   type="button"
-                  disabled={isPending || notification.isRead}
+                  disabled={isPending}
                   className="block w-full border-b px-4 py-3 text-left transition-colors hover:bg-(--muted) disabled:cursor-default disabled:hover:bg-white"
-                  onClick={() => handleMarkRead(notification.id)}
+                  onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex items-start gap-2">
                     <span

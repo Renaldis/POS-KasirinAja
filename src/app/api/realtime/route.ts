@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/server";
 import { prisma } from "@/lib/prisma";
-import { getStoreRealtimeVersion } from "@/lib/realtime/store-events";
+import { getStoreRealtimePayload } from "@/lib/realtime/store-events";
 
 export async function GET(request: Request) {
   const currentUser = await getCurrentUser();
@@ -25,10 +25,11 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const clientVersion = Number(url.searchParams.get("version") ?? 0);
-  const version = await getStoreRealtimeVersion(user.storeId);
+  const payload = await getStoreRealtimePayload(user.storeId);
 
   return NextResponse.json({
-    changed: clientVersion !== version,
-    version,
+    changed: clientVersion !== payload.version,
+    scopes: payload.scopes,
+    version: payload.version,
   });
 }

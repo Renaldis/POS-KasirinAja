@@ -64,6 +64,7 @@ export async function GET(request: Request) {
       type: notification.type,
       title: notification.title,
       message: notification.message,
+      actionUrl: notification.actionUrl,
       isRead: notification.isRead,
       createdAt: notification.createdAt.toISOString(),
     })),

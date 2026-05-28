@@ -12,6 +12,7 @@ type NotificationInput = {
   type: string;
   title: string;
   message: string;
+  actionUrl?: string | null;
 };
 
 type PermissionUser = {
@@ -57,6 +58,7 @@ export async function notifyUser(input: NotificationInput) {
       type: input.type,
       title: input.title,
       message: input.message,
+      actionUrl: input.actionUrl ?? null,
     },
   });
 
@@ -73,6 +75,7 @@ export async function notifyUsersWithPermission({
   type,
   title,
   message,
+  actionUrl,
   excludeUserId,
 }: NotificationInput & {
   permission: PermissionKey;
@@ -124,6 +127,7 @@ export async function notifyUsersWithPermission({
       type,
       title,
       message,
+      actionUrl: actionUrl ?? null,
     })),
   });
 
@@ -138,6 +142,7 @@ export async function notifyUsersWithAnyPermission({
   type,
   title,
   message,
+  actionUrl,
   excludeUserId,
 }: NotificationInput & {
   permissions: PermissionKey[];
@@ -191,6 +196,7 @@ export async function notifyUsersWithAnyPermission({
       type,
       title,
       message,
+      actionUrl: actionUrl ?? null,
     })),
   });
 
@@ -247,6 +253,7 @@ export async function notifyLowStockOnce({
     type,
     title: "Stok produk menipis",
     message: `${product.name} tersisa ${product.stock} ${product.unit}. Minimum stok ${product.minimumStock} ${product.unit}.`,
+    actionUrl: `/stocks/products/${product.id}`,
   });
 }
 
@@ -261,6 +268,7 @@ export async function createNotificationWithClient(
       type: input.type,
       title: input.title,
       message: input.message,
+      actionUrl: input.actionUrl ?? null,
     },
   });
 }

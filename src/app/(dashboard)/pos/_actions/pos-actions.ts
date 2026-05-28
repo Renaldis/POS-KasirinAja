@@ -444,6 +444,9 @@ export async function checkoutManualTransferAction(
       type: "payment.manual.pending",
       title: "Transfer manual menunggu approval",
       message: `Invoice ${invoiceNumber} menunggu verifikasi pembayaran.`,
+      actionUrl: transaction.payments[0]?.id
+        ? `/payments/${transaction.payments[0].id}`
+        : "/payments",
       excludeUserId: context.userId,
     });
 

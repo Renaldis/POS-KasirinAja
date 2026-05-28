@@ -174,6 +174,7 @@ export async function voidTransactionAction(formData: FormData): Promise<Transac
           type: "transaction.voided",
           title: "Transaksi di-void",
           message: `Invoice ${transaction.invoiceNumber} di-void: ${parsedInput.data.reason}`,
+          actionUrl: `/transactions/${transaction.id}`,
         });
       }
     });

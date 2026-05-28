@@ -290,6 +290,7 @@ export async function approveManualPaymentAction(formData: FormData): Promise<Pa
         type: "payment.manual.approved",
         title: "Transfer manual disetujui",
         message: `Invoice ${payment.transaction.invoiceNumber} sudah di-approve.`,
+        actionUrl: `/transactions/${payment.transactionId}`,
       });
     });
 
@@ -411,6 +412,7 @@ export async function rejectManualPaymentAction(formData: FormData): Promise<Pay
         type: "payment.manual.rejected",
         title: "Transfer manual ditolak",
         message: `Invoice ${payment.transaction.invoiceNumber} ditolak: ${parsedInput.data.reason}`,
+        actionUrl: `/transactions/${payment.transactionId}`,
       });
     });
 

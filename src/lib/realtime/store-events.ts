@@ -4,6 +4,10 @@ function storeRealtimeVersionKey(storeId: string) {
   return `realtime:version:${storeId}`;
 }
 
+function storeRealtimePayloadKey(storeId: string) {
+  return `realtime:payload:${storeId}`;
+}
+
 function storeRealtimeChannel(storeId: string) {
   return `realtime:channel:${storeId}`;
 }
@@ -17,14 +21,14 @@ export async function bumpStoreRealtimeVersion(storeId: string, scopes: string[]
     }
 
     const version = await client.incr(storeRealtimeVersionKey(storeId));
+    const payload = {
+      scopes,
+      version,
+    };
 
-    await client.publish(
-      storeRealtimeChannel(storeId),
-      JSON.stringify({
-        scopes,
-        version,
-      }),
-    );
+    await client.set(storeRealtimePayloadKey(storeId), JSON.stringify(payload), "EX", 60);
+
+    await client.publish(storeRealtimeChannel(storeId), JSON.stringify(payload));
   } catch {
     // Realtime refresh is an enhancement; database + revalidation remain canonical.
   }
@@ -43,6 +47,39 @@ export async function getStoreRealtimeVersion(storeId: string) {
     return Number(version ?? 0);
   } catch {
     return 0;
+  }
+}
+
+export async function getStoreRealtimePayload(storeId: string) {
+  try {
+    const client = await getRedisClient();
+
+    if (!client) {
+      return {
+        scopes: [],
+        version: 0,
+      };
+    }
+
+    const [version, payload] = await Promise.all([
+      client.get(storeRealtimeVersionKey(storeId)),
+      client.get(storeRealtimePayloadKey(storeId)),
+    ]);
+    const parsedPayload = payload
+      ? (JSON.parse(payload) as { scopes?: unknown; version?: unknown })
+      : null;
+
+    return {
+      scopes: Array.isArray(parsedPayload?.scopes)
+        ? parsedPayload.scopes.filter((scope): scope is string => typeof scope === "string")
+        : [],
+      version: Number(version ?? parsedPayload?.version ?? 0),
+    };
+  } catch {
+    return {
+      scopes: [],
+      version: 0,
+    };
   }
 }
 

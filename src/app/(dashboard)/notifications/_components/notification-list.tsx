@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useTransition } from 'react';
 import { toast } from 'sonner';
 import { markNotificationReadAction } from '@/app/(dashboard)/notifications/_actions/notification-actions';
@@ -63,7 +64,7 @@ function NotificationRow({
   }
 
   return (
-    <div className="grid gap-3 px-4 py-4 xl:grid-cols-[1fr_170px_140px] xl:items-center">
+    <div className="grid gap-3 px-4 py-4 xl:grid-cols-[1fr_170px_220px] xl:items-center">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <Badge variant={notification.isRead ? 'outline' : 'default'}>
@@ -81,7 +82,12 @@ function NotificationRow({
       <p className="text-sm text-(--muted-foreground)">
         {dateFormatter.format(notification.createdAt)}
       </p>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {notification.actionUrl ? (
+          <Button asChild size="sm" variant="ghost">
+            <Link href={notification.actionUrl}>Buka</Link>
+          </Button>
+        ) : null}
         {!notification.isRead ? (
           <Button
             type="button"

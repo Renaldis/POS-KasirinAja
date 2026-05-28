@@ -383,6 +383,7 @@ model Notification {
   type      String
   title     String
   message   String
+  actionUrl String?  @map("action_url")
   isRead    Boolean  @default(false) @map("is_read")
   store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -3,6 +3,7 @@ export type NotificationListItem = {
   type: string;
   title: string;
   message: string;
+  actionUrl: string | null;
   isRead: boolean;
   createdAt: Date;
 };

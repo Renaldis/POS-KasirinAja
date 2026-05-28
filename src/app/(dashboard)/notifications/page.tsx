@@ -52,6 +52,7 @@ export default async function NotificationsPage({ searchParams }: NotificationsP
     type: notification.type,
     title: notification.title,
     message: notification.message,
+    actionUrl: notification.actionUrl,
     isRead: notification.isRead,
     createdAt: notification.createdAt,
   }));
