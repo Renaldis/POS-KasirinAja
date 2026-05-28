@@ -113,9 +113,31 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
           paymentStatus: PaymentStatus.paid,
         }),
   };
+  const paymentReportWhere: Prisma.PaymentWhereInput = {
+    transaction: {
+      storeId: user.storeId,
+      createdAt: {
+        gte: startDate,
+        lte: endDate,
+      },
+      ...(filters.cashierId ? { cashierId: filters.cashierId } : {}),
+    },
+    ...(paymentMethod ? { method: paymentMethod } : {}),
+  };
 
-  const [cashiers, summary, transactions, topProducts, paymentBreakdown] =
-    await Promise.all([
+  const [
+    cashiers,
+    summary,
+    transactions,
+    topProducts,
+    leastSoldProducts,
+    productPerformance,
+    cashierPerformance,
+    paymentBreakdown,
+    paymentStatusBreakdown,
+    manualTransferPendingSummary,
+    shiftSummary,
+  ] = await Promise.all([
       prisma.user.findMany({
         where: {
           storeId: user.storeId,
@@ -170,6 +192,53 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         },
         take: 5,
       }),
+      prisma.transactionItem.groupBy({
+        by: ['productName'],
+        where: {
+          transaction: reportWhere,
+        },
+        _sum: {
+          qty: true,
+          subtotal: true,
+        },
+        orderBy: {
+          _sum: {
+            qty: 'asc',
+          },
+        },
+        take: 5,
+      }),
+      prisma.transactionItem.groupBy({
+        by: ['productName'],
+        where: {
+          transaction: reportWhere,
+        },
+        _sum: {
+          qty: true,
+          subtotal: true,
+        },
+        orderBy: {
+          _sum: {
+            subtotal: 'desc',
+          },
+        },
+        take: 10,
+      }),
+      prisma.transaction.groupBy({
+        by: ['cashierId'],
+        where: reportWhere,
+        _sum: {
+          total: true,
+        },
+        _count: {
+          id: true,
+        },
+        orderBy: {
+          _sum: {
+            total: 'desc',
+          },
+        },
+      }),
       prisma.transaction.groupBy({
         by: ['paymentMethod'],
         where: reportWhere,
@@ -185,10 +254,67 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
           },
         },
       }),
+      prisma.payment.groupBy({
+        by: ['status'],
+        where: paymentReportWhere,
+        _sum: {
+          amount: true,
+        },
+        _count: {
+          id: true,
+        },
+        orderBy: {
+          _count: {
+            id: 'desc',
+          },
+        },
+      }),
+      prisma.payment.aggregate({
+        where: {
+          ...paymentReportWhere,
+          method: PaymentMethod.manual_transfer,
+          status: PaymentStatus.pending,
+        },
+        _sum: {
+          amount: true,
+        },
+        _count: {
+          id: true,
+        },
+      }),
+      prisma.shift.aggregate({
+        where: {
+          storeId: user.storeId,
+          openedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+          ...(filters.cashierId ? { cashierId: filters.cashierId } : {}),
+        },
+        _count: {
+          id: true,
+        },
+        _sum: {
+          expectedCash: true,
+          cashDifference: true,
+        },
+      }),
     ]);
 
   const totalSales = Number(summary._sum.total?.toString() ?? 0);
   const averageSale = Number(summary._avg.total?.toString() ?? 0);
+  const cashierNameById = new Map(cashiers.map((cashier) => [cashier.id, cashier.name]));
+  const totalProductQty = productPerformance.reduce(
+    (total, product) => total + (product._sum.qty ?? 0),
+    0,
+  );
+  const totalProductRevenue = productPerformance.reduce(
+    (total, product) => total + Number(product._sum.subtotal?.toString() ?? 0),
+    0,
+  );
+  const manualTransferPendingTotal = Number(
+    manualTransferPendingSummary._sum.amount?.toString() ?? 0,
+  );
 
   return (
     <PageShell
@@ -230,6 +356,11 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
             value={`${startDateValue} - ${endDateValue}`}
             helper="Tanggal transaksi dibuat"
           />
+          <ReportSummaryCard
+            label="Transfer Pending"
+            value={currencyFormatter.format(manualTransferPendingTotal)}
+            helper={`${manualTransferPendingSummary._count.id} pembayaran pending`}
+          />
         </section>
 
         <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
@@ -266,6 +397,127 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
           </div>
 
           <div className="rounded-lg border bg-white p-4">
+            <h2 className="text-lg font-semibold">Produk Paling Sedikit Terjual</h2>
+            <div className="mt-4 space-y-3">
+              {leastSoldProducts.length > 0 ? (
+                leastSoldProducts.map((product) => (
+                  <div
+                    key={product.productName}
+                    className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {product.productName}
+                      </p>
+                      <p className="text-xs text-(--muted-foreground)">
+                        Qty {product._sum.qty ?? 0}
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold">
+                      {currencyFormatter.format(
+                        Number(product._sum.subtotal?.toString() ?? 0),
+                      )}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-(--muted-foreground)">
+                  Belum ada data produk.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <ReportSummaryCard
+            label="Qty Produk Terjual"
+            value={String(totalProductQty)}
+            helper="Akumulasi item pada filter aktif"
+          />
+          <ReportSummaryCard
+            label="Omzet Produk"
+            value={currencyFormatter.format(totalProductRevenue)}
+            helper="Subtotal item produk"
+          />
+          <ReportSummaryCard
+            label="Shift Periode"
+            value={String(shiftSummary._count.id)}
+            helper="Shift dibuka pada periode"
+          />
+          <ReportSummaryCard
+            label="Selisih Kas Shift"
+            value={currencyFormatter.format(
+              Number(shiftSummary._sum.cashDifference?.toString() ?? 0),
+            )}
+            helper="Total selisih kas closed shift"
+          />
+        </section>
+
+        <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+          <div className="rounded-lg border bg-white p-4">
+            <h2 className="text-lg font-semibold">Ringkasan Produk</h2>
+            <div className="mt-4 space-y-3">
+              {productPerformance.length > 0 ? (
+                productPerformance.map((product) => (
+                  <div
+                    key={product.productName}
+                    className="grid gap-2 rounded-md border px-3 py-2 sm:grid-cols-[1fr_auto_auto] sm:items-center"
+                  >
+                    <p className="truncate text-sm font-medium">
+                      {product.productName}
+                    </p>
+                    <p className="text-sm text-(--muted-foreground)">
+                      Qty {product._sum.qty ?? 0}
+                    </p>
+                    <p className="text-sm font-semibold">
+                      {currencyFormatter.format(
+                        Number(product._sum.subtotal?.toString() ?? 0),
+                      )}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-(--muted-foreground)">
+                  Belum ada ringkasan produk.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-white p-4">
+            <h2 className="text-lg font-semibold">Performa Kasir</h2>
+            <div className="mt-4 space-y-3">
+              {cashierPerformance.length > 0 ? (
+                cashierPerformance.map((cashier) => (
+                  <div
+                    key={cashier.cashierId}
+                    className="grid gap-2 rounded-md border px-3 py-2 sm:grid-cols-[1fr_auto_auto] sm:items-center"
+                  >
+                    <p className="truncate text-sm font-medium">
+                      {cashierNameById.get(cashier.cashierId) ?? 'Kasir'}
+                    </p>
+                    <p className="text-sm text-(--muted-foreground)">
+                      {cashier._count.id} transaksi
+                    </p>
+                    <p className="text-sm font-semibold">
+                      {currencyFormatter.format(
+                        Number(cashier._sum.total?.toString() ?? 0),
+                      )}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-(--muted-foreground)">
+                  Belum ada performa kasir.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+          <div className="rounded-lg border bg-white p-4">
             <h2 className="text-lg font-semibold">Metode Pembayaran</h2>
             <div className="mt-4 space-y-3">
               {paymentBreakdown.length > 0 ? (
@@ -294,6 +546,64 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
                   Belum ada data metode pembayaran.
                 </p>
               )}
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-white p-4">
+            <h2 className="text-lg font-semibold">Status Pembayaran</h2>
+            <div className="mt-4 space-y-3">
+              {paymentStatusBreakdown.length > 0 ? (
+                paymentStatusBreakdown.map((payment) => (
+                  <div
+                    key={payment.status}
+                    className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{payment.status}</p>
+                      <p className="text-xs text-(--muted-foreground)">
+                        {payment._count.id} pembayaran
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold">
+                      {currencyFormatter.format(
+                        Number(payment._sum.amount?.toString() ?? 0),
+                      )}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-(--muted-foreground)">
+                  Belum ada data status pembayaran.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+          <div className="rounded-lg border bg-white p-4">
+            <h2 className="text-lg font-semibold">Ringkasan Shift</h2>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <p className="text-sm text-(--muted-foreground)">Expected cash</p>
+                <p className="text-sm font-semibold">
+                  {currencyFormatter.format(
+                    Number(shiftSummary._sum.expectedCash?.toString() ?? 0),
+                  )}
+                </p>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <p className="text-sm text-(--muted-foreground)">Selisih kas</p>
+                <p className="text-sm font-semibold">
+                  {currencyFormatter.format(
+                    Number(shiftSummary._sum.cashDifference?.toString() ?? 0),
+                  )}
+                </p>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <p className="text-sm text-(--muted-foreground)">Jumlah shift</p>
+                <p className="text-sm font-semibold">{shiftSummary._count.id}</p>
+              </div>
             </div>
           </div>
         </section>
