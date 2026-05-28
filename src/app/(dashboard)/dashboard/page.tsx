@@ -1,16 +1,16 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { DashboardFilterForm } from "@/app/(dashboard)/dashboard/_components/dashboard-filter-form";
-import { DashboardMetricGrid } from "@/app/(dashboard)/dashboard/_components/dashboard-metric-grid";
-import { LowStockPanel } from "@/app/(dashboard)/dashboard/_components/low-stock-panel";
-import { PendingTransfersPanel } from "@/app/(dashboard)/dashboard/_components/pending-transfers-panel";
-import { SalesChartPanel } from "@/app/(dashboard)/dashboard/_components/sales-chart-panel";
-import { TopProductsPanel } from "@/app/(dashboard)/dashboard/_components/top-products-panel";
-import { getDashboardData } from "@/app/(dashboard)/dashboard/_services/dashboard-service";
-import { Button } from "@/components/ui/button";
-import { PageShell } from "@/components/shared/page-shell";
-import { hasPermission } from "@/lib/auth/permissions";
-import { getCurrentUserWithAccess } from "@/lib/auth/server";
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { DashboardFilterForm } from '@/app/(dashboard)/dashboard/_components/dashboard-filter-form';
+import { DashboardMetricGrid } from '@/app/(dashboard)/dashboard/_components/dashboard-metric-grid';
+import { LowStockPanel } from '@/app/(dashboard)/dashboard/_components/low-stock-panel';
+import { PendingTransfersPanel } from '@/app/(dashboard)/dashboard/_components/pending-transfers-panel';
+import { SalesChartPanel } from '@/app/(dashboard)/dashboard/_components/sales-chart-panel';
+import { TopProductsPanel } from '@/app/(dashboard)/dashboard/_components/top-products-panel';
+import { getDashboardData } from '@/app/(dashboard)/dashboard/_services/dashboard-service';
+import { Button } from '@/components/ui/button';
+import { PageShell } from '@/components/shared/page-shell';
+import { hasPermission } from '@/lib/auth/permissions';
+import { getCurrentUserWithAccess } from '@/lib/auth/server';
 
 type DashboardPageProps = {
   searchParams: Promise<{
@@ -20,31 +20,35 @@ type DashboardPageProps = {
   }>;
 };
 
-export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+export default async function DashboardPage({
+  searchParams,
+}: DashboardPageProps) {
   const user = await getCurrentUserWithAccess();
   const filters = await searchParams;
 
   if (!user) {
-    redirect("/auth/login");
+    redirect('/auth/login');
   }
 
   if (!user.storeId) {
-    redirect("/auth/register");
+    redirect('/auth/register');
   }
 
-  const canReadDashboard = await hasPermission(user.id, "dashboard.store.read");
+  const canReadDashboard = await hasPermission(user.id, 'dashboard.store.read');
 
   if (!canReadDashboard) {
-    redirect("/pos");
+    redirect('/pos');
   }
 
   const dashboardData = await getDashboardData(user.storeId, filters);
+
+  console.log(dashboardData);
 
   return (
     <PageShell
       title="Dashboard"
       description="Ringkasan operasional toko berdasarkan periode yang dipilih."
-      breadcrumbs={[{ label: "Dashboard" }]}
+      breadcrumbs={[{ label: 'Dashboard' }]}
       actions={
         <Button asChild>
           <Link href="/pos">Mulai POS</Link>
@@ -68,7 +72,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <TopProductsPanel products={dashboardData.topProducts} />
         </section>
         <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-          <PendingTransfersPanel payments={dashboardData.pendingTransferItems} />
+          <PendingTransfersPanel
+            payments={dashboardData.pendingTransferItems}
+          />
           <LowStockPanel products={dashboardData.lowStockProducts} />
         </section>
       </div>
