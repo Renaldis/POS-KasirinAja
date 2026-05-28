@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Pencil, Power } from "lucide-react";
+import { Eye, Pencil, Power } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { deactivateProductAction } from "@/app/(dashboard)/products/_actions/product-actions";
@@ -141,6 +141,11 @@ function ProductRow({
         {product.isActive ? "Aktif" : "Nonaktif"}
       </Badge>
       <div className="flex justify-end gap-1">
+        <Button asChild size="icon" type="button" variant="ghost" aria-label="Lihat detail produk">
+          <Link href={`/products/${product.id}`}>
+            <Eye className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </Button>
         {canUpdate ? (
           <Button asChild size="icon" type="button" variant="ghost" aria-label="Edit produk">
             <Link href={`/products/${product.id}/edit`}>
