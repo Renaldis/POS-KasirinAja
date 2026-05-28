@@ -4,11 +4,14 @@ import { useState } from 'react';
 import type { NotificationListItem } from '@/app/(dashboard)/notifications/_types/notification';
 import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { DashboardSidebar } from '@/components/layout/dashboard-sidebar';
+import { RealtimeRefresh } from '@/components/layout/realtime-refresh';
 
 type DashboardShellProps = {
   children: React.ReactNode;
   notifications: NotificationListItem[];
+  notificationVersion: number;
   permissionKeys: string[];
+  realtimeVersion: number;
   storeName: string;
   unreadNotificationCount: number;
   userName: string;
@@ -17,7 +20,9 @@ type DashboardShellProps = {
 export function DashboardShell({
   children,
   notifications,
+  notificationVersion,
   permissionKeys,
+  realtimeVersion,
   storeName,
   unreadNotificationCount,
   userName,
@@ -26,6 +31,7 @@ export function DashboardShell({
 
   return (
     <div className="min-h-dvh bg-(--background) text-(--foreground)">
+      <RealtimeRefresh version={realtimeVersion} />
       <DashboardSidebar
         open={sidebarOpen}
         permissionKeys={permissionKeys}
@@ -34,6 +40,7 @@ export function DashboardShell({
       <div className="min-h-dvh lg:pl-64">
         <DashboardHeader
           notifications={notifications}
+          notificationVersion={notificationVersion}
           storeName={storeName}
           unreadNotificationCount={unreadNotificationCount}
           userName={userName}

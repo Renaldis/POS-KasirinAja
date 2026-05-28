@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Bell } from 'lucide-react';
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import {
   markAllNotificationsReadAction,
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 
 type NotificationMenuProps = {
   notifications: NotificationListItem[];
+  notificationVersion: number;
   unreadCount: number;
 };
 
@@ -26,10 +27,100 @@ const dateFormatter = new Intl.DateTimeFormat('id-ID', {
 
 export function NotificationMenu({
   notifications,
+  notificationVersion,
   unreadCount,
 }: NotificationMenuProps) {
   const [open, setOpen] = useState(false);
+  const [items, setItems] = useState(notifications);
+  const [currentUnreadCount, setCurrentUnreadCount] = useState(unreadCount);
+  const versionRef = useRef(notificationVersion);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    versionRef.current = notificationVersion;
+
+    const timeoutId = window.setTimeout(() => {
+      setItems(notifications);
+      setCurrentUnreadCount(unreadCount);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [notifications, notificationVersion, unreadCount]);
+
+  useEffect(() => {
+    let active = true;
+    let eventSource: EventSource | null = null;
+    let intervalId: number | null = null;
+
+    async function syncNotifications() {
+      try {
+        const response = await fetch(`/api/notifications?version=${versionRef.current}`, {
+          cache: 'no-store',
+        });
+
+        if (!active || !response.ok) {
+          return;
+        }
+
+        const result = await response.json();
+
+        if (!result.changed) {
+          versionRef.current = result.version;
+          return;
+        }
+
+        versionRef.current = result.version;
+        setCurrentUnreadCount(result.unreadCount);
+        setItems(
+          result.notifications.map(
+            (notification: NotificationListItem & { createdAt: string }) => ({
+              ...notification,
+              createdAt: new Date(notification.createdAt),
+            }),
+          ),
+        );
+      } catch {
+        // Keep the current UI; Redis/API polling is a realtime enhancement.
+      }
+    }
+
+    function startPolling() {
+      if (intervalId) {
+        return;
+      }
+
+      intervalId = window.setInterval(syncNotifications, 4000);
+    }
+
+    if ('EventSource' in window) {
+      eventSource = new EventSource('/api/notifications/stream');
+      eventSource.addEventListener('notification', () => {
+        void syncNotifications();
+      });
+      eventSource.onerror = () => {
+        eventSource?.close();
+        eventSource = null;
+        startPolling();
+      };
+    } else {
+      startPolling();
+    }
+
+    if (document.visibilityState === 'visible') {
+      void syncNotifications();
+    }
+
+    return () => {
+      active = false;
+      eventSource?.close();
+
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, []);
 
   function handleMarkRead(id: string) {
     const formData = new FormData();
@@ -40,7 +131,15 @@ export function NotificationMenu({
 
       if (!result.success) {
         toast.error(result.message ?? 'Notifikasi gagal diperbarui');
+        return;
       }
+
+      setItems((currentItems) =>
+        currentItems.map((notification) =>
+          notification.id === id ? { ...notification, isRead: true } : notification,
+        ),
+      );
+      setCurrentUnreadCount((currentCount) => Math.max(0, currentCount - 1));
     });
   }
 
@@ -50,7 +149,13 @@ export function NotificationMenu({
 
       if (!result.success) {
         toast.error(result.message ?? 'Notifikasi gagal diperbarui');
+        return;
       }
+
+      setItems((currentItems) =>
+        currentItems.map((notification) => ({ ...notification, isRead: true })),
+      );
+      setCurrentUnreadCount(0);
     });
   }
 
@@ -64,9 +169,9 @@ export function NotificationMenu({
         onClick={() => setOpen((currentOpen) => !currentOpen)}
       >
         <Bell className="h-5 w-5" aria-hidden="true" />
-        {unreadCount > 0 ? (
+        {currentUnreadCount > 0 ? (
           <span className="absolute right-1.5 top-1.5 min-w-4 rounded-full bg-(--destructive) px-1 text-[10px] font-semibold leading-4 text-white">
-            {unreadCount > 9 ? '9+' : unreadCount}
+            {currentUnreadCount > 9 ? '9+' : currentUnreadCount}
           </span>
         ) : null}
       </Button>
@@ -77,10 +182,10 @@ export function NotificationMenu({
             <div>
               <p className="text-sm font-semibold">Notifikasi</p>
               <p className="text-xs text-(--muted-foreground)">
-                {unreadCount} belum dibaca
+                {currentUnreadCount} belum dibaca
               </p>
             </div>
-            {unreadCount > 0 ? (
+            {currentUnreadCount > 0 ? (
               <Button
                 size="sm"
                 variant="ghost"
@@ -94,8 +199,8 @@ export function NotificationMenu({
           </div>
 
           <div className="max-h-96 overflow-y-auto">
-            {notifications.length > 0 ? (
-              notifications.map((notification) => (
+            {items.length > 0 ? (
+              items.map((notification) => (
                 <button
                   key={notification.id}
                   type="button"

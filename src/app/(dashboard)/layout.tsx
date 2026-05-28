@@ -3,7 +3,9 @@ import type { NotificationListItem } from "@/app/(dashboard)/notifications/_type
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { getUserPermissionKeys } from "@/lib/auth/permissions";
 import { getCurrentUserWithAccess } from "@/lib/auth/server";
+import { getNotificationVersion } from "@/lib/notifications/realtime";
 import { prisma } from "@/lib/prisma";
+import { getStoreRealtimeVersion } from "@/lib/realtime/store-events";
 
 export default async function DashboardLayout({
   children,
@@ -24,7 +26,13 @@ export default async function DashboardLayout({
     storeId: user.storeId,
     OR: [{ userId: user.id }, { userId: null }],
   };
-  const [permissionKeys, notifications, unreadNotificationCount] = await Promise.all([
+  const [
+    permissionKeys,
+    notifications,
+    unreadNotificationCount,
+    notificationVersion,
+    realtimeVersion,
+  ] = await Promise.all([
     getUserPermissionKeys(user.id),
     prisma.notification.findMany({
       where: notificationWhere,
@@ -39,6 +47,8 @@ export default async function DashboardLayout({
         isRead: false,
       },
     }),
+    getNotificationVersion(user.storeId, user.id),
+    getStoreRealtimeVersion(user.storeId),
   ]);
   const notificationItems: NotificationListItem[] = notifications.map((notification) => ({
     id: notification.id,
@@ -52,7 +62,9 @@ export default async function DashboardLayout({
   return (
     <DashboardShell
       notifications={notificationItems}
+      notificationVersion={notificationVersion}
       permissionKeys={[...permissionKeys]}
+      realtimeVersion={realtimeVersion}
       storeName={user.store?.name ?? "KasirinAja"}
       unreadNotificationCount={unreadNotificationCount}
       userName={user.name}

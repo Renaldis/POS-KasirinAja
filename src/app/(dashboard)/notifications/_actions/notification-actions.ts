@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { NotificationActionState } from "@/app/(dashboard)/notifications/_types/notification";
 import { getCurrentUser } from "@/lib/auth/server";
+import { bumpUserNotificationVersion } from "@/lib/notifications/realtime";
 import { prisma } from "@/lib/prisma";
 
 async function getActionContext() {
@@ -70,6 +71,7 @@ export async function markNotificationReadAction(
 
     revalidatePath("/notifications");
     revalidatePath("/", "layout");
+    await bumpUserNotificationVersion(context.storeId, context.userId);
 
     return {
       success: true,
@@ -104,6 +106,7 @@ export async function markAllNotificationsReadAction(): Promise<NotificationActi
 
     revalidatePath("/notifications");
     revalidatePath("/", "layout");
+    await bumpUserNotificationVersion(context.storeId, context.userId);
 
     return {
       success: true,

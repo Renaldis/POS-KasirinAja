@@ -8,6 +8,7 @@ import { NotificationMenu } from '@/components/layout/notification-menu';
 
 type DashboardHeaderProps = {
   notifications: NotificationListItem[];
+  notificationVersion: number;
   storeName: string;
   unreadNotificationCount: number;
   userName: string;
@@ -16,6 +17,7 @@ type DashboardHeaderProps = {
 
 export function DashboardHeader({
   notifications,
+  notificationVersion,
   storeName,
   unreadNotificationCount,
   userName,
@@ -46,6 +48,7 @@ export function DashboardHeader({
         <div className="ml-auto flex items-center gap-2">
           <NotificationMenu
             notifications={notifications}
+            notificationVersion={notificationVersion}
             unreadCount={unreadNotificationCount}
           />
           <div className="hidden text-right sm:block">

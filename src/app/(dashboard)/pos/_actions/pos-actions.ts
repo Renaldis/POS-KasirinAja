@@ -21,8 +21,9 @@ import type {
 } from "@/app/(dashboard)/pos/_types/pos";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
-import { notifyUsersWithPermission } from "@/lib/notifications";
+import { notifyLowStockOnce, notifyUsersWithPermission } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
+import { bumpStoreRealtimeVersion } from "@/lib/realtime/store-events";
 
 async function getActionContext() {
   const currentUser = await getCurrentUser();
@@ -267,6 +268,22 @@ export async function checkoutCashAction(
     revalidatePath("/products");
     revalidatePath("/shifts");
     revalidatePath(`/shifts/${context.shiftId}`);
+    revalidatePath("/", "layout");
+    await bumpStoreRealtimeVersion(context.storeId, [
+      "transactions",
+      "products",
+      "stocks",
+      "dashboard",
+    ]);
+
+    await Promise.all(
+      transactionItems.map((item) =>
+        notifyLowStockOnce({
+          storeId: context.storeId,
+          productId: item.productId,
+        }),
+      ),
+    );
 
     return {
       success: true,
@@ -415,6 +432,11 @@ export async function checkoutManualTransferAction(
     revalidatePath("/transactions");
     revalidatePath("/dashboard");
     revalidatePath("/", "layout");
+    await bumpStoreRealtimeVersion(context.storeId, [
+      "payments",
+      "transactions",
+      "dashboard",
+    ]);
 
     await notifyUsersWithPermission({
       storeId: context.storeId,

@@ -11,7 +11,9 @@ import type { TransactionActionState } from "@/app/(dashboard)/transactions/_typ
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
 import { createNotificationWithClient } from "@/lib/notifications";
+import { bumpUserNotificationVersion } from "@/lib/notifications/realtime";
 import { prisma } from "@/lib/prisma";
+import { bumpStoreRealtimeVersion } from "@/lib/realtime/store-events";
 
 async function getActionContext() {
   const currentUser = await getCurrentUser();
@@ -181,6 +183,16 @@ export async function voidTransactionAction(formData: FormData): Promise<Transac
     revalidatePath("/products");
     revalidatePath("/pos");
     revalidatePath("/", "layout");
+    await bumpStoreRealtimeVersion(context.storeId, [
+      "transactions",
+      "products",
+      "stocks",
+      "pos",
+    ]);
+
+    if (transaction.cashierId !== context.userId) {
+      await bumpUserNotificationVersion(context.storeId, transaction.cashierId);
+    }
 
     return {
       success: true,

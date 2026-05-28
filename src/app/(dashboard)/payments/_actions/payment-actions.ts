@@ -15,8 +15,10 @@ import type { PaymentActionState } from "@/app/(dashboard)/payments/_types/payme
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
 import { getOptionalImageFile, uploadImage } from "@/lib/cloudinary";
-import { createNotificationWithClient } from "@/lib/notifications";
+import { createNotificationWithClient, notifyLowStockOnce } from "@/lib/notifications";
+import { bumpUserNotificationVersion } from "@/lib/notifications/realtime";
 import { prisma } from "@/lib/prisma";
+import { bumpStoreRealtimeVersion } from "@/lib/realtime/store-events";
 
 async function getUserContext(permission?: "payment.manual.approve" | "payment.manual.reject") {
   const currentUser = await getCurrentUser();
@@ -148,6 +150,7 @@ export async function uploadPaymentProofAction(formData: FormData): Promise<Paym
 
     revalidatePath("/payments");
     revalidatePath(`/payments/${payment.id}`);
+    await bumpStoreRealtimeVersion(context.storeId, ["payments"]);
 
     return {
       success: true,
@@ -298,6 +301,26 @@ export async function approveManualPaymentAction(formData: FormData): Promise<Pa
     revalidatePath("/products");
     revalidatePath("/dashboard");
     revalidatePath("/", "layout");
+    await bumpStoreRealtimeVersion(context.storeId, [
+      "payments",
+      "transactions",
+      "products",
+      "stocks",
+      "dashboard",
+    ]);
+    await bumpUserNotificationVersion(context.storeId, payment.transaction.cashierId);
+
+    await Promise.all(
+      payment.transaction.items
+        .map((item) => item.productId)
+        .filter((productId): productId is string => Boolean(productId))
+        .map((productId) =>
+          notifyLowStockOnce({
+            storeId: context.storeId,
+            productId,
+          }),
+        ),
+    );
 
     return {
       success: true,
@@ -397,6 +420,12 @@ export async function rejectManualPaymentAction(formData: FormData): Promise<Pay
     revalidatePath(`/transactions/${payment.transactionId}`);
     revalidatePath("/dashboard");
     revalidatePath("/", "layout");
+    await bumpStoreRealtimeVersion(context.storeId, [
+      "payments",
+      "transactions",
+      "dashboard",
+    ]);
+    await bumpUserNotificationVersion(context.storeId, payment.transaction.cashierId);
 
     return {
       success: true,

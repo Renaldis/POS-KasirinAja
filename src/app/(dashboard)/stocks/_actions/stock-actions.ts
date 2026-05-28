@@ -6,7 +6,9 @@ import { stockMovementSchema } from "@/app/(dashboard)/stocks/_schemas/stock-sch
 import type { StockActionState } from "@/app/(dashboard)/stocks/_types/stock";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
+import { notifyLowStockOnce } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
+import { bumpStoreRealtimeVersion } from "@/lib/realtime/store-events";
 
 async function getActionContext(type: StockMovementType) {
   const currentUser = await getCurrentUser();
@@ -81,6 +83,7 @@ export async function createStockMovementAction(formData: FormData): Promise<Sto
         id: true,
         name: true,
         stock: true,
+        minimumStock: true,
       },
     });
 
@@ -160,6 +163,15 @@ export async function createStockMovementAction(formData: FormData): Promise<Sto
     revalidatePath("/stocks");
     revalidatePath("/products");
     revalidatePath("/pos");
+    revalidatePath("/", "layout");
+    await bumpStoreRealtimeVersion(context.storeId, ["stocks", "products", "pos"]);
+
+    if (stockAfter <= product.minimumStock) {
+      await notifyLowStockOnce({
+        storeId: context.storeId,
+        productId: product.id,
+      });
+    }
 
     return {
       success: true,
