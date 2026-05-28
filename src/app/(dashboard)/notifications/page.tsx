@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { NotificationList } from "@/app/(dashboard)/notifications/_components/notification-list";
+import { NotificationToolbar } from "@/app/(dashboard)/notifications/_components/notification-toolbar";
 import type { NotificationListItem } from "@/app/(dashboard)/notifications/_types/notification";
 import { ListPagination } from "@/components/shared/list-pagination";
 import { PageShell } from "@/components/shared/page-shell";
@@ -11,8 +12,13 @@ type NotificationsPageProps = {
   searchParams: Promise<{
     page?: string;
     pageSize?: string;
+    status?: string;
   }>;
 };
+
+function normalizeNotificationStatus(status?: string) {
+  return status === "read" || status === "unread" ? status : undefined;
+}
 
 export default async function NotificationsPage({ searchParams }: NotificationsPageProps) {
   const user = await getCurrentUserWithAccess();
@@ -28,13 +34,21 @@ export default async function NotificationsPage({ searchParams }: NotificationsP
 
   const page = normalizePage(filters.page);
   const pageSize = normalizePageSize(filters.pageSize);
+  const status = normalizeNotificationStatus(filters.status);
   const skip = (page - 1) * pageSize;
   const notificationWhere = {
     storeId: user.storeId,
     OR: [{ userId: user.id }, { userId: null }],
+    ...(status ? { isRead: status === "read" } : {}),
   };
 
-  const [notifications, totalNotifications] = await Promise.all([
+  const unreadNotificationWhere = {
+    storeId: user.storeId,
+    isRead: false,
+    OR: [{ userId: user.id }, { userId: null }],
+  };
+
+  const [notifications, totalNotifications, unreadNotificationCount] = await Promise.all([
     prisma.notification.findMany({
       where: notificationWhere,
       orderBy: {
@@ -45,6 +59,9 @@ export default async function NotificationsPage({ searchParams }: NotificationsP
     }),
     prisma.notification.count({
       where: notificationWhere,
+    }),
+    prisma.notification.count({
+      where: unreadNotificationWhere,
     }),
   ]);
   const notificationItems: NotificationListItem[] = notifications.map((notification) => ({
@@ -67,12 +84,17 @@ export default async function NotificationsPage({ searchParams }: NotificationsP
       ]}
     >
       <div className="space-y-4">
+        <NotificationToolbar
+          hasUnread={unreadNotificationCount > 0}
+          status={status}
+        />
         <NotificationList notifications={notificationItems} />
         <ListPagination
           basePath="/notifications"
           page={page}
           pageSize={pageSize}
           totalItems={totalNotifications}
+          searchParams={{ status }}
         />
       </div>
     </PageShell>
