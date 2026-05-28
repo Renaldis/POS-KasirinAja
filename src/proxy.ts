@@ -40,6 +40,7 @@ export const config = {
     "/reports/:path*",
     "/users/:path*",
     "/roles/:path*",
+    "/audit-logs/:path*",
     "/settings/:path*",
     "/auth/login",
     "/auth/register",

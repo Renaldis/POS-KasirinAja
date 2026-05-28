@@ -15,6 +15,7 @@ const moduleOrder = [
   "report",
   "user",
   "role",
+  "audit",
   "setting",
 ];
 
@@ -30,6 +31,7 @@ export const moduleLabels: Record<string, string> = {
   report: "Laporan",
   user: "User",
   role: "Role",
+  audit: "Audit",
   setting: "Setting",
 };
 

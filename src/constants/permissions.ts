@@ -24,6 +24,7 @@ export const permissions = [
   { key: "shift.read.own", name: "Read Own Shifts", module: "shift" },
   { key: "user.manage", name: "Manage Users", module: "user" },
   { key: "role.manage", name: "Manage Roles", module: "role" },
+  { key: "audit.read", name: "Read Audit Logs", module: "audit" },
   { key: "setting.store.update", name: "Update Store Settings", module: "setting" },
   { key: "setting.global.update", name: "Update Global Settings", module: "setting" },
 ] as const;

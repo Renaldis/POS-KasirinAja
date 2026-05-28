@@ -6,6 +6,7 @@ import {
   BarChart3,
   Boxes,
   Clock3,
+  ClipboardList,
   CreditCard,
   LayoutDashboard,
   Package,
@@ -51,6 +52,7 @@ const navigation = [
   { label: 'Laporan', href: '/reports', icon: BarChart3, permissions: ['report.read'] },
   { label: 'User', href: '/users', icon: Users, permissions: ['user.manage'] },
   { label: 'Role', href: '/roles', icon: ShieldCheck, permissions: ['role.manage'] },
+  { label: 'Audit', href: '/audit-logs', icon: ClipboardList, permissions: ['audit.read'] },
   {
     label: 'Setting',
     href: '/settings',
