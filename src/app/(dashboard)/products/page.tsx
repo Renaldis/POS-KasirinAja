@@ -47,6 +47,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const page = normalizePage(filters.page);
   const pageSize = normalizePageSize(filters.pageSize);
   const skip = (page - 1) * pageSize;
+  const canReadProducts = await hasPermission(user.id, "product.read");
+
+  if (!canReadProducts) {
+    redirect("/dashboard");
+  }
 
   const productWhere = {
     storeId: user.storeId,
@@ -65,38 +70,44 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       : {}),
   };
 
-  const [categories, products, totalProducts, canCreateProducts, canUpdateProducts, canDeleteProducts] =
-    await Promise.all([
-      prisma.category.findMany({
-        where: {
-          storeId: user.storeId,
-        },
-        orderBy: {
-          name: "asc",
-        },
-      }),
-      prisma.product.findMany({
-        where: productWhere,
-        orderBy: {
-          createdAt: "desc",
-        },
-        include: {
-          category: {
-            select: {
-              name: true,
-            },
+  const [
+    categories,
+    products,
+    totalProducts,
+    canCreateProducts,
+    canUpdateProducts,
+    canDeleteProducts,
+  ] = await Promise.all([
+    prisma.category.findMany({
+      where: {
+        storeId: user.storeId,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    }),
+    prisma.product.findMany({
+      where: productWhere,
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        category: {
+          select: {
+            name: true,
           },
         },
-        skip,
-        take: pageSize,
-      }),
-      prisma.product.count({
-        where: productWhere,
-      }),
-      hasPermission(user.id, "product.create"),
-      hasPermission(user.id, "product.update"),
-      hasPermission(user.id, "product.delete"),
-    ]);
+      },
+      skip,
+      take: pageSize,
+    }),
+    prisma.product.count({
+      where: productWhere,
+    }),
+    hasPermission(user.id, "product.create"),
+    hasPermission(user.id, "product.update"),
+    hasPermission(user.id, "product.delete"),
+  ]);
 
   const categoryOptions = categories.map(toCategoryOption);
   const productItems = products.map(toProductListItem);

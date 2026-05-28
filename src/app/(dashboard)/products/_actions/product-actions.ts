@@ -191,6 +191,7 @@ export async function createProductAction(formData: FormData): Promise<ProductAc
     });
 
     revalidatePath("/products");
+    revalidatePath("/pos");
 
     return {
       success: true,
@@ -333,6 +334,9 @@ export async function updateProductAction(formData: FormData): Promise<ProductAc
     });
 
     revalidatePath("/products");
+    revalidatePath(`/products/${input.id}`);
+    revalidatePath(`/stocks/products/${input.id}`);
+    revalidatePath("/pos");
 
     return {
       success: true,
@@ -408,6 +412,8 @@ export async function deactivateProductAction(formData: FormData): Promise<Produ
     });
 
     revalidatePath("/products");
+    revalidatePath(`/products/${product.id}`);
+    revalidatePath("/pos");
 
     return {
       success: true,
