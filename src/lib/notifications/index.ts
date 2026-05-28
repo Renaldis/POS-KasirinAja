@@ -1,4 +1,4 @@
-import { UserStatus, type PrismaClient } from "@/generated/prisma/client";
+import { ShiftStatus, UserStatus, type PrismaClient } from "@/generated/prisma/client";
 import type { PermissionKey } from "@/constants/permissions";
 import {
   bumpStoreNotificationVersion,
@@ -338,6 +338,95 @@ export async function resolveLowStockNotification({
     ...Array.from(userIds).map((userId) => bumpUserNotificationVersion(storeId, userId)),
     hasStoreNotification ? bumpStoreNotificationVersion(storeId) : Promise.resolve(),
   ]);
+}
+
+function shiftReminderType(shiftId: string) {
+  return `shift.open.reminder.${shiftId}`;
+}
+
+export async function notifyOpenShiftReminderOnce({
+  storeId,
+  userId,
+}: {
+  storeId: string;
+  userId: string;
+}) {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const shift = await prisma.shift.findFirst({
+    where: {
+      storeId,
+      cashierId: userId,
+      status: ShiftStatus.open,
+      openedAt: {
+        lt: todayStart,
+      },
+    },
+    select: {
+      id: true,
+      openedAt: true,
+    },
+  });
+
+  if (!shift) {
+    return;
+  }
+
+  const type = shiftReminderType(shift.id);
+  const existingUnreadNotification = await prisma.notification.findFirst({
+    where: {
+      storeId,
+      userId,
+      type,
+      isRead: false,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingUnreadNotification) {
+    return;
+  }
+
+  await notifyUser({
+    storeId,
+    userId,
+    type,
+    title: "Shift belum ditutup",
+    message: `Shift yang dibuka pada ${new Intl.DateTimeFormat("id-ID", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(shift.openedAt)} masih aktif.`,
+    actionUrl: `/shifts/${shift.id}`,
+  });
+}
+
+export async function resolveOpenShiftReminder({
+  storeId,
+  userId,
+  shiftId,
+}: {
+  storeId: string;
+  userId: string;
+  shiftId: string;
+}) {
+  const updated = await prisma.notification.updateMany({
+    where: {
+      storeId,
+      userId,
+      type: shiftReminderType(shiftId),
+      isRead: false,
+    },
+    data: {
+      isRead: true,
+    },
+  });
+
+  if (updated.count > 0) {
+    await bumpUserNotificationVersion(storeId, userId);
+  }
 }
 
 export async function createNotificationWithClient(

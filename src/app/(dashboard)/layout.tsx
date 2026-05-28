@@ -3,6 +3,7 @@ import type { NotificationListItem } from "@/app/(dashboard)/notifications/_type
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { getUserPermissionKeys } from "@/lib/auth/permissions";
 import { getCurrentUserWithAccess } from "@/lib/auth/server";
+import { notifyOpenShiftReminderOnce } from "@/lib/notifications";
 import { getNotificationVersion } from "@/lib/notifications/realtime";
 import { prisma } from "@/lib/prisma";
 import { getStoreRealtimeVersion } from "@/lib/realtime/store-events";
@@ -26,6 +27,11 @@ export default async function DashboardLayout({
     storeId: user.storeId,
     OR: [{ userId: user.id }, { userId: null }],
   };
+  await notifyOpenShiftReminderOnce({
+    storeId: user.storeId,
+    userId: user.id,
+  });
+
   const [
     permissionKeys,
     notifications,

@@ -6,6 +6,7 @@ import { closeShiftSchema, openShiftSchema } from "@/app/(dashboard)/shifts/_sch
 import type { ShiftActionState } from "@/app/(dashboard)/shifts/_types/shift";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
+import { resolveOpenShiftReminder } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 async function getActionContext(permission: "shift.open" | "shift.close") {
@@ -105,6 +106,12 @@ export async function openShiftAction(formData: FormData): Promise<ShiftActionSt
     });
 
     revalidatePath("/shifts");
+    revalidatePath("/", "layout");
+    await resolveOpenShiftReminder({
+      storeId: context.storeId,
+      userId: context.userId,
+      shiftId: shift.id,
+    });
 
     return {
       success: true,
