@@ -19,7 +19,10 @@ import {
   useTransition,
 } from 'react';
 import { toast } from 'sonner';
-import { checkoutCashAction } from '@/app/(dashboard)/pos/_actions/pos-actions';
+import {
+  checkoutCashAction,
+  checkoutManualTransferAction,
+} from '@/app/(dashboard)/pos/_actions/pos-actions';
 import type {
   ActivePosShift,
   PosProductItem,
@@ -45,6 +48,8 @@ type ReceiptState = {
   createdAt: string;
   paid: number;
   change: number;
+  paymentMethod: string;
+  paymentStatus: string;
   storeAddress: string | null;
   storeName: string;
   total: number;
@@ -55,6 +60,8 @@ type ReceiptState = {
     subtotal: number;
   }>;
 } | null;
+
+type PaymentMode = 'cash' | 'manual_transfer';
 
 const currencyFormatter = new Intl.NumberFormat('id-ID', {
   style: 'currency',
@@ -101,6 +108,7 @@ export function PosWorkspace({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [receivedCash, setReceivedCash] = useState('');
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('cash');
   const [receipt, setReceipt] = useState<ReceiptState>(null);
   const [isPending, startTransition] = useTransition();
   const items = usePosCartStore((state) => state.items);
@@ -138,7 +146,10 @@ export function PosWorkspace({
   const paid = Number(receivedCash || 0);
   const change = Math.max(0, paid - subtotal);
   const canCheckout =
-    canCreateTransaction && items.length > 0 && paid >= subtotal && !isPending;
+    canCreateTransaction &&
+    items.length > 0 &&
+    (paymentMode === 'manual_transfer' || paid >= subtotal) &&
+    !isPending;
 
   const handleCheckout = useCallback(() => {
     if (!canCheckout) {
@@ -153,13 +164,19 @@ export function PosWorkspace({
     }));
 
     startTransition(async () => {
-      const result = await checkoutCashAction({
-        receivedCash: paid,
-        items: items.map((item) => ({
-          productId: item.id,
-          qty: item.qty,
-        })),
-      });
+      const checkoutItems = items.map((item) => ({
+        productId: item.id,
+        qty: item.qty,
+      }));
+      const result =
+        paymentMode === 'cash'
+          ? await checkoutCashAction({
+              receivedCash: paid,
+              items: checkoutItems,
+            })
+          : await checkoutManualTransferAction({
+              items: checkoutItems,
+            });
 
       if (!result.success) {
         toast.error(result.message ?? 'Transaksi gagal diproses');
@@ -170,8 +187,13 @@ export function PosWorkspace({
         invoiceNumber: result.invoiceNumber ?? '-',
         cashierName,
         createdAt: new Date().toISOString(),
-        paid,
-        change: Number(result.change ?? 0),
+        paid: paymentMode === 'cash' ? paid : 0,
+        change:
+          paymentMode === 'cash' && 'change' in result
+            ? Number(result.change ?? 0)
+            : 0,
+        paymentMethod: paymentMode === 'cash' ? 'Cash' : 'Manual Transfer',
+        paymentStatus: paymentMode === 'cash' ? 'Paid' : 'Pending',
         storeAddress,
         storeName,
         total: subtotal,
@@ -187,6 +209,7 @@ export function PosWorkspace({
     clearCart,
     items,
     paid,
+    paymentMode,
     storeAddress,
     storeName,
     subtotal,
@@ -528,23 +551,56 @@ export function PosWorkspace({
               <span className="font-semibold">{formatMoney(subtotal)}</span>
             </div>
             <div className="space-y-2">
-              <label htmlFor="received-cash" className="text-sm font-medium">
-                Uang Diterima
-              </label>
-              <Input
-                id="received-cash"
-                type="number"
-                min="0"
-                step="100"
-                value={receivedCash}
-                onChange={(event) => setReceivedCash(event.target.value)}
-                disabled={!canCreateTransaction || isPending}
-              />
+              <p className="text-sm font-medium">Metode Pembayaran</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={paymentMode === 'cash' ? 'default' : 'outline'}
+                  onClick={() => setPaymentMode('cash')}
+                >
+                  Cash
+                </Button>
+                <Button
+                  type="button"
+                  variant={
+                    paymentMode === 'manual_transfer' ? 'default' : 'outline'
+                  }
+                  onClick={() => setPaymentMode('manual_transfer')}
+                >
+                  Transfer
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Kembalian</span>
-              <span className="font-semibold">{formatMoney(change)}</span>
-            </div>
+            {paymentMode === 'cash' ? (
+              <>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="received-cash"
+                    className="text-sm font-medium"
+                  >
+                    Uang Diterima
+                  </label>
+                  <Input
+                    id="received-cash"
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={receivedCash}
+                    onChange={(event) => setReceivedCash(event.target.value)}
+                    disabled={!canCreateTransaction || isPending}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Kembalian</span>
+                  <span className="font-semibold">{formatMoney(change)}</span>
+                </div>
+              </>
+            ) : (
+              <p className="rounded-md border bg-(--muted) p-3 text-sm text-(--muted-foreground)">
+                Transfer manual akan masuk sebagai pending. Stok baru berkurang
+                setelah pembayaran di-approve.
+              </p>
+            )}
             {!canCreateTransaction ? (
               <p className="text-sm text-(--destructive)">
                 Kamu tidak memiliki akses untuk membuat transaksi.
@@ -556,7 +612,11 @@ export function PosWorkspace({
               disabled={!canCheckout}
               onClick={handleCheckout}
             >
-              {isPending ? 'Memproses...' : 'Bayar Cash'}
+              {isPending
+                ? 'Memproses...'
+                : paymentMode === 'cash'
+                  ? 'Bayar Cash'
+                  : 'Buat Transfer Pending'}
             </Button>
             {receipt ? (
               <Button
@@ -619,11 +679,11 @@ export function PosWorkspace({
             </div>
             <div className="flex justify-between">
               <span>Metode</span>
-              <span>Cash</span>
+              <span>{receipt.paymentMethod}</span>
             </div>
             <div className="flex justify-between">
               <span>Status</span>
-              <span>Paid</span>
+              <span>{receipt.paymentStatus}</span>
             </div>
             <p className="mt-4 text-center text-xs">Terima kasih</p>
           </div>

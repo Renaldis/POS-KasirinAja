@@ -9,8 +9,16 @@ import {
   StockMovementType,
   TransactionStatus,
 } from "@/generated/prisma/client";
-import { checkoutCashSchema, type CheckoutCashInput } from "@/app/(dashboard)/pos/_schemas/pos-schema";
-import type { CheckoutCashActionState } from "@/app/(dashboard)/pos/_types/pos";
+import {
+  checkoutCashSchema,
+  checkoutManualTransferSchema,
+  type CheckoutCashInput,
+  type CheckoutManualTransferInput,
+} from "@/app/(dashboard)/pos/_schemas/pos-schema";
+import type {
+  CheckoutCashActionState,
+  CheckoutManualTransferActionState,
+} from "@/app/(dashboard)/pos/_types/pos";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/server";
 import { prisma } from "@/lib/prisma";
@@ -270,6 +278,153 @@ export async function checkoutCashAction(
     return {
       success: false,
       message: error instanceof Error ? error.message : "Transaksi gagal diproses.",
+    };
+  }
+}
+
+export async function checkoutManualTransferAction(
+  input: CheckoutManualTransferInput,
+): Promise<CheckoutManualTransferActionState> {
+  try {
+    const context = await getActionContext();
+
+    if ("error" in context) {
+      return { success: false, message: context.error };
+    }
+
+    const parsedInput = checkoutManualTransferSchema.safeParse(input);
+
+    if (!parsedInput.success) {
+      return {
+        success: false,
+        message: parsedInput.error.issues[0]?.message ?? "Data transaksi tidak valid",
+      };
+    }
+
+    const mergedItems = new Map<string, number>();
+
+    for (const item of parsedInput.data.items) {
+      mergedItems.set(item.productId, (mergedItems.get(item.productId) ?? 0) + item.qty);
+    }
+
+    const productIds = Array.from(mergedItems.keys());
+    const products = await prisma.product.findMany({
+      where: {
+        id: {
+          in: productIds,
+        },
+        storeId: context.storeId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        sellingPrice: true,
+        stock: true,
+      },
+    });
+
+    if (products.length !== productIds.length) {
+      return {
+        success: false,
+        message: "Sebagian produk tidak ditemukan atau sudah nonaktif.",
+      };
+    }
+
+    const transactionItems = products.map((product) => {
+      const qty = mergedItems.get(product.id) ?? 0;
+      const unitPrice = Number(product.sellingPrice.toString());
+
+      if (product.stock < qty) {
+        throw new Error(`Stok "${product.name}" tidak cukup.`);
+      }
+
+      return {
+        productId: product.id,
+        productName: product.name,
+        qty,
+        unitPrice,
+        subtotal: unitPrice * qty,
+      };
+    });
+    const subtotal = transactionItems.reduce((total, item) => total + item.subtotal, 0);
+    const invoiceNumber = generateInvoiceNumber();
+
+    const transaction = await prisma.$transaction(async (tx) => {
+      const createdTransaction = await tx.transaction.create({
+        data: {
+          storeId: context.storeId,
+          shiftId: context.shiftId,
+          cashierId: context.userId,
+          invoiceNumber,
+          subtotal: subtotal.toFixed(2),
+          discountTotal: "0.00",
+          taxTotal: "0.00",
+          total: subtotal.toFixed(2),
+          paymentMethod: PaymentMethod.manual_transfer,
+          paymentStatus: PaymentStatus.pending,
+          transactionStatus: TransactionStatus.pending,
+          items: {
+            create: transactionItems.map((item) => ({
+              productId: item.productId,
+              productName: item.productName,
+              qty: item.qty,
+              unitPrice: item.unitPrice.toFixed(2),
+              subtotal: item.subtotal.toFixed(2),
+            })),
+          },
+          payments: {
+            create: {
+              method: PaymentMethod.manual_transfer,
+              status: PaymentStatus.pending,
+              amount: subtotal.toFixed(2),
+              reference: invoiceNumber,
+            },
+          },
+        },
+        select: {
+          id: true,
+          payments: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          storeId: context.storeId,
+          userId: context.userId,
+          action: "transaction.manual_transfer.pending",
+          entity: "transaction",
+          entityId: createdTransaction.id,
+          metadata: {
+            invoiceNumber,
+            total: subtotal,
+          },
+        },
+      });
+
+      return createdTransaction;
+    });
+
+    revalidatePath("/pos");
+    revalidatePath("/payments");
+    revalidatePath("/transactions");
+    revalidatePath("/dashboard");
+
+    return {
+      success: true,
+      message: "Transaksi transfer dibuat sebagai pending.",
+      invoiceNumber,
+      transactionId: transaction.id,
+      paymentId: transaction.payments[0]?.id,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Transaksi transfer gagal diproses.",
     };
   }
 }

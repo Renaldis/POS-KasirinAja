@@ -135,7 +135,7 @@ export default async function StockProductDetailPage({
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-semibold">{product.name}</h2>
                 {isEmpty ? (
-                  <Badge className="border-transparent bg-(--destructive) text-white">
+                  <Badge className="border-transparent bg-[var(--destructive)] text-white">
                     Kosong
                   </Badge>
                 ) : isLowStock ? (
@@ -147,7 +147,7 @@ export default async function StockProductDetailPage({
                   <Badge variant="outline">Nonaktif</Badge>
                 ) : null}
               </div>
-              <p className="mt-1 text-sm text-(--muted-foreground)">
+              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
                 SKU {product.sku}
                 {product.barcode ? ` - ${product.barcode}` : ''}
               </p>
@@ -158,25 +158,25 @@ export default async function StockProductDetailPage({
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-md border p-3">
-              <p className="text-xs text-(--muted-foreground)">Kategori</p>
+              <p className="text-xs text-[var(--muted-foreground)]">Kategori</p>
               <p className="mt-1 text-sm font-medium">
                 {product.category?.name ?? '-'}
               </p>
             </div>
             <div className="rounded-md border p-3">
-              <p className="text-xs text-(--muted-foreground)">Stok Minimum</p>
+              <p className="text-xs text-[var(--muted-foreground)]">Stok Minimum</p>
               <p className="mt-1 text-sm font-medium">
                 {product.minimumStock} {product.unit}
               </p>
             </div>
             <div className="rounded-md border p-3">
-              <p className="text-xs text-(--muted-foreground)">Status Produk</p>
+              <p className="text-xs text-[var(--muted-foreground)]">Status Produk</p>
               <p className="mt-1 text-sm font-medium">
                 {product.isActive ? 'Aktif' : 'Nonaktif'}
               </p>
             </div>
             <div className="rounded-md border p-3">
-              <p className="text-xs text-(--muted-foreground)">Total Mutasi</p>
+              <p className="text-xs text-[var(--muted-foreground)]">Total Mutasi</p>
               <p className="mt-1 text-sm font-medium">{totalMovements}</p>
             </div>
           </div>
@@ -185,7 +185,7 @@ export default async function StockProductDetailPage({
         <section className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold">Riwayat Stok Produk</h2>
-            <p className="text-sm text-(--muted-foreground)">
+            <p className="text-sm text-[var(--muted-foreground)]">
               Timeline mutasi khusus untuk produk ini.
             </p>
           </div>

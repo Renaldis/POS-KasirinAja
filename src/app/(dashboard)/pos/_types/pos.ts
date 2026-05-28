@@ -24,3 +24,11 @@ export type CheckoutCashActionState = {
   change?: string;
   transactionId?: string;
 };
+
+export type CheckoutManualTransferActionState = {
+  success: boolean;
+  message?: string;
+  invoiceNumber?: string;
+  transactionId?: string;
+  paymentId?: string;
+};

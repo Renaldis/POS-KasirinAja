@@ -12,4 +12,16 @@ export const checkoutCashSchema = z.object({
     .min(1, "Keranjang masih kosong"),
 });
 
+export const checkoutManualTransferSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        productId: z.string().min(1, "Produk tidak valid"),
+        qty: z.coerce.number().int().min(1, "Qty minimal 1"),
+      }),
+    )
+    .min(1, "Keranjang masih kosong"),
+});
+
 export type CheckoutCashInput = z.infer<typeof checkoutCashSchema>;
+export type CheckoutManualTransferInput = z.infer<typeof checkoutManualTransferSchema>;
